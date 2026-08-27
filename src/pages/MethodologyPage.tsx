@@ -27,7 +27,7 @@ export function MethodologyPage() {
       {ITEMS.map((item) => (
         <section
           key={item.title}
-          className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5"
+          className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5"
         >
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
             {item.title}

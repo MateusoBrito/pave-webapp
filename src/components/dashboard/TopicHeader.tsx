@@ -42,7 +42,7 @@ interface Props {
 
 export function TopicHeader({ detail, loading }: Props) {
   return (
-    <section className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
+    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <Link to="/topicos" className="text-xs text-[var(--text-muted)] hover:underline">
         ← Tópicos{detail ? ` / ${detail.topic.label}` : ''}
       </Link>

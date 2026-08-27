@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { SentimentSeriesPoint } from '../../api/client'
-import { seriesColor } from '../../lib/colors'
+import { sentimentColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
 import { ChartTooltip } from './ChartTooltip'
 
@@ -27,7 +27,7 @@ export function SentimentOverTimeChart({ points, loading }: Props) {
   }))
 
   return (
-    <section className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
+    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <h2 className="text-sm font-semibold text-[var(--text-primary)]">
         Sentimento ao longo do tempo
       </h2>
@@ -69,19 +69,19 @@ export function SentimentOverTimeChart({ points, loading }: Props) {
             <Bar
               dataKey="Negativo"
               stackId="s"
-              fill={seriesColor(0)}
+              fill={sentimentColor('negative')}
               isAnimationActive={false}
             />
             <Bar
               dataKey="Neutro"
               stackId="s"
-              fill={seriesColor(2)}
+              fill={sentimentColor('neutral')}
               isAnimationActive={false}
             />
             <Bar
               dataKey="Positivo"
               stackId="s"
-              fill={seriesColor(4)}
+              fill={sentimentColor('positive')}
               radius={[4, 4, 0, 0]}
               isAnimationActive={false}
             />

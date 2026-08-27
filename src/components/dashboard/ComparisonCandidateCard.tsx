@@ -1,30 +1,30 @@
 import type { ComparisonCandidateSummary } from '../../api/client'
-import { seriesColor } from '../../lib/colors'
+import { candidateColor } from '../../lib/colors'
 import { SentimentBar } from './SentimentBar'
 
 interface Props {
   summary: ComparisonCandidateSummary | undefined
   loading: boolean
-  colorIndex: number
 }
 
-export function ComparisonCandidateCard({ summary, loading, colorIndex }: Props) {
+export function ComparisonCandidateCard({ summary, loading }: Props) {
   if (loading || !summary) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5 text-sm text-[var(--text-muted)]">
+      <div className="flex h-56 items-center justify-center rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5 text-sm text-[var(--text-muted)]">
         Carregando…
       </div>
     )
   }
 
+  const color = candidateColor(summary.entity.id)
   const maxTopic = Math.max(...summary.topTopics.map((t) => t.mentions), 1)
 
   return (
-    <div className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
+    <div className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <div className="mb-4 flex items-center gap-3">
         <span
           className="h-10 w-10 shrink-0 rounded-full"
-          style={{ backgroundColor: seriesColor(colorIndex) }}
+          style={{ backgroundColor: color }}
         />
         <div>
           <p className="font-semibold text-[var(--text-primary)]">
@@ -55,7 +55,7 @@ export function ComparisonCandidateCard({ summary, loading, colorIndex }: Props)
                 className="block h-full rounded-full"
                 style={{
                   width: `${(t.mentions / maxTopic) * 100}%`,
-                  backgroundColor: seriesColor(colorIndex),
+                  backgroundColor: color,
                 }}
               />
             </span>

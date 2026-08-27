@@ -1,33 +1,59 @@
 import {
+  ArrowUpRight,
+  Calendar,
+  MessageSquare,
+  Thermometer,
+  TrendingUp,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import {
   getEntities,
+  getHighlights,
   getMentionsByNetwork,
   getOverviewSummary,
   getShareOfVoice,
   getTopicRanking,
   getVolumeOverTime,
 } from '../api/client'
+import { HighlightCard } from '../components/dashboard/HighlightCard'
 import { KpiCard } from '../components/dashboard/KpiCard'
 import { MentionsByNetworkChart } from '../components/dashboard/MentionsByNetworkChart'
 import { ShareOfVoiceChart } from '../components/dashboard/ShareOfVoiceChart'
 import { TopTopicsTable } from '../components/dashboard/TopTopicsTable'
 import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
+import type { IconTone } from '../components/ui/IconTile'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
+import type { SentimentLabel } from '../types'
 import { formatDateRange } from '../lib/dates'
 import { formatCompactNumber, formatPercent, formatSignedPercent } from '../lib/format'
 
-const SENTIMENT_LABEL: Record<string, string> = {
+const SENTIMENT_LABEL: Record<SentimentLabel, string> = {
   negative: 'Negativo',
   neutral: 'Neutro',
   positive: 'Positivo',
+}
+const SENTIMENT_TONE: Record<SentimentLabel, IconTone> = {
+  negative: 'coral',
+  neutral: 'graphite',
+  positive: 'green',
+}
+const SENTIMENT_VALUE_COLOR: Record<SentimentLabel, string> = {
+  negative: 'var(--tint-text-coral)',
+  neutral: 'var(--text-primary)',
+  positive: 'var(--tint-text-green)',
+}
+const HIGHLIGHT_STYLE: Record<string, { icon: LucideIcon; tone: IconTone }> = {
+  top_topic: { icon: TrendingUp, tone: 'purple' },
+  network_growth: { icon: ArrowUpRight, tone: 'green' },
 }
 
 export function OverviewPage() {
   const { candidateIds, networks, period } = useFilters()
   usePageHeader(
     'Visão Geral',
-    `Panorama da conversa pública · ${formatDateRange(period)}`,
+    `O que está movimentando a conversa eleitoral? · ${formatDateRange(period)}`,
   )
 
   const { data: entities = [] } = useAsync(() => getEntities(), [])
@@ -58,17 +84,23 @@ export function OverviewPage() {
     () => getTopicRanking(candidateIds, period, networks, 10),
     deps,
   )
+  const { data: highlights = [] } = useAsync(
+    () => getHighlights(candidateIds, period, networks),
+    deps,
+  )
 
-  const sentimentTotal = summary
-    ? summary.sentiment.negative +
-        summary.sentiment.neutral +
-        summary.sentiment.positive || 1
+  const sentiment = summary?.organicSentiment
+  const sentimentTotal = sentiment
+    ? sentiment.negative + sentiment.neutral + sentiment.positive || 1
     : 1
+  const predominant = summary?.predominantSentiment ?? 'neutral'
 
   return (
     <>
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <KpiCard
+          icon={MessageSquare}
+          tone="purple"
           label="Menções coletadas"
           value={
             summaryLoading || !summary ? '—' : formatCompactNumber(summary.totalMentions)
@@ -80,31 +112,26 @@ export function OverviewPage() {
           }
         />
         <KpiCard
-          label="Sentimento predominante"
-          value={summary ? SENTIMENT_LABEL[summary.predominantSentiment] : '—'}
-          subtext={
-            summary
-              ? `${formatPercent((summary.sentiment.negative / sentimentTotal) * 100)} neg · ${formatPercent(
-                  (summary.sentiment.neutral / sentimentTotal) * 100,
-                )} neu · ${formatPercent((summary.sentiment.positive / sentimentTotal) * 100)} pos`
-              : undefined
-          }
-        />
-        <KpiCard
-          label="Tópicos ativos"
-          value={summary ? String(summary.activeTopics) : '—'}
-          subtext={
-            summary ? `${summary.emergentCount} emergentes neste período` : undefined
-          }
-        />
-        <KpiCard
+          icon={Calendar}
+          tone="green"
           label="Cobertura da coleta"
           value={summary ? `${summary.daysCovered}/${summary.totalDays} dias` : '—'}
+          subtext={summary ? `${summary.totalNetworks} plataformas` : undefined}
+        />
+        <KpiCard
+          icon={Thermometer}
+          tone={SENTIMENT_TONE[predominant]}
+          label="Clima do debate"
+          value={summary ? SENTIMENT_LABEL[predominant] : '—'}
+          valueColor={summary ? SENTIMENT_VALUE_COLOR[predominant] : undefined}
           subtext={
-            summary
-              ? `${summary.daysCovered === summary.totalDays ? 'sem lacunas' : 'com lacunas'} · ${summary.networksCovered} redes`
+            sentiment
+              ? `${formatPercent((sentiment.negative / sentimentTotal) * 100)} negativo · ${formatPercent(
+                  (sentiment.neutral / sentimentTotal) * 100,
+                )} neutro · ${formatPercent((sentiment.positive / sentimentTotal) * 100)} positivo`
               : undefined
           }
+          subtextSecondary="Soma de Reddit e YouTube · anúncios da Meta não entram"
         />
       </section>
 
@@ -115,7 +142,11 @@ export function OverviewPage() {
       />
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <MentionsByNetworkChart data={byNetwork} loading={byNetworkLoading} />
+        <MentionsByNetworkChart
+          entities={selectedEntities}
+          data={byNetwork}
+          loading={byNetworkLoading}
+        />
         <ShareOfVoiceChart
           entities={selectedEntities}
           data={shareOfVoice}
@@ -124,6 +155,23 @@ export function OverviewPage() {
       </section>
 
       <TopTopicsTable rows={ranking} entities={entities} loading={rankingLoading} />
+
+      {highlights.length > 0 && (
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {highlights.map((h) => {
+            const style = HIGHLIGHT_STYLE[h.kind]
+            return (
+              <HighlightCard
+                key={h.kind}
+                icon={style.icon}
+                tone={style.tone}
+                title={h.title}
+                description={h.description}
+              />
+            )
+          })}
+        </section>
+      )}
     </>
   )
 }

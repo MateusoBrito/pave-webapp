@@ -8,7 +8,7 @@ interface Props {
 
 export function TopicsByNetworkGrid({ rows, loading }: Props) {
   return (
-    <section className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
+    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <h2 className="text-sm font-semibold text-[var(--text-primary)]">
         Tópicos por rede social
       </h2>
@@ -47,7 +47,7 @@ export function TopicsByNetworkGrid({ rows, loading }: Props) {
                       <div
                         className="mx-auto h-8 w-full rounded-md"
                         style={{
-                          backgroundColor: 'var(--series-1)',
+                          backgroundColor: 'var(--color-primary)',
                           opacity: 0.12 + row.byNetwork[n.id] * 0.78,
                         }}
                       />

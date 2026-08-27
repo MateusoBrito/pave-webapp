@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import type { TopicRankingRow } from '../../api/client'
-import { seriesColor } from '../../lib/colors'
 import { formatSignedPercent } from '../../lib/format'
 
 interface Props {
@@ -13,7 +12,7 @@ export function TopicsRankingList({ rows, loading }: Props) {
   const max = Math.max(...rows.map((r) => r.mentions), 1)
 
   return (
-    <section className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
+    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <h2 className="text-sm font-semibold text-[var(--text-primary)]">
         Ranking de tópicos do período
       </h2>
@@ -45,7 +44,7 @@ export function TopicsRankingList({ rows, loading }: Props) {
                     className="block h-full rounded-full"
                     style={{
                       width: `${(row.mentions / max) * 100}%`,
-                      backgroundColor: seriesColor(0),
+                      backgroundColor: 'var(--color-primary)',
                     }}
                   />
                 </span>

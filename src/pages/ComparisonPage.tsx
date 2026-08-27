@@ -1,13 +1,9 @@
 import { useState } from 'react'
-import {
-  getComparisonSummary,
-  getDivergingTopics,
-  getEntities,
-  getVolumeOverTime,
-} from '../api/client'
+import { getComparisonSummary, getEntities, getVolumeOverTime } from '../api/client'
 import { ComparisonCandidateCard } from '../components/dashboard/ComparisonCandidateCard'
-import { DivergingTopicsChart } from '../components/dashboard/DivergingTopicsChart'
 import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
+import { Button } from '../components/ui/Button'
+import { FOCUS_RING } from '../components/ui/focusRing'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
@@ -20,6 +16,8 @@ function PickerBadge({ value }: { value: string }) {
     </span>
   )
 }
+
+const SELECT_CLASS = `rounded-lg border border-[var(--baseline)] bg-[var(--chart-surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] focus:border-[var(--color-primary)] ${FOCUS_RING}`
 
 export function ComparisonPage() {
   const { networks, period } = useFilters()
@@ -54,19 +52,15 @@ export function ComparisonPage() {
     () => (a && b ? getVolumeOverTime([a, b], period, networks) : Promise.resolve([])),
     deps,
   )
-  const { data: diverging = [], loading: divergingLoading } = useAsync(
-    () => (a && b ? getDivergingTopics(a, b, period, networks) : Promise.resolve([])),
-    deps,
-  )
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-4">
         <PickerBadge value="A" />
         <select
           value={a ?? ''}
           onChange={(e) => setEntityAId(e.target.value)}
-          className="rounded-lg border border-[var(--baseline)] bg-[var(--chart-surface)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+          className={SELECT_CLASS}
         >
           {entities.map((e) => (
             <option key={e.id} value={e.id}>
@@ -81,7 +75,7 @@ export function ComparisonPage() {
         <select
           value={b ?? ''}
           onChange={(e) => setEntityBId(e.target.value)}
-          className="rounded-lg border border-[var(--baseline)] bg-[var(--chart-surface)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+          className={SELECT_CLASS}
         >
           {entities.map((e) => (
             <option key={e.id} value={e.id}>
@@ -90,19 +84,19 @@ export function ComparisonPage() {
           ))}
         </select>
 
-        <button
-          type="button"
+        <Button
+          variant="outline"
           disabled
           title="Disponível quando novos candidatos entrarem via config (Fase 6)"
-          className="ml-auto cursor-not-allowed rounded-lg border border-[var(--baseline)] px-3 py-1.5 text-sm text-[var(--text-muted)]"
+          className="ml-auto"
         >
           + Adicionar candidato (vem da API — Fase 6)
-        </button>
+        </Button>
       </div>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ComparisonCandidateCard summary={summaryA} loading={loadingA} colorIndex={0} />
-        <ComparisonCandidateCard summary={summaryB} loading={loadingB} colorIndex={1} />
+        <ComparisonCandidateCard summary={summaryA} loading={loadingA} />
+        <ComparisonCandidateCard summary={summaryB} loading={loadingB} />
       </section>
 
       <VolumeOverTimeChart
@@ -113,13 +107,6 @@ export function ComparisonPage() {
         loading={volumeLoading}
         title="Volume comparado ao longo do tempo"
         subtitle="Série diária · mesma escala para os dois candidatos"
-      />
-
-      <DivergingTopicsChart
-        rows={diverging}
-        loading={divergingLoading}
-        labelA={entityA?.name ?? 'A'}
-        labelB={entityB?.name ?? 'B'}
       />
     </>
   )

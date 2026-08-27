@@ -1,6 +1,7 @@
+import { TrendingUp } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -11,8 +12,9 @@ import {
 import type { CandidateVolumePoint } from '../../api/client'
 import type { Entity } from '../../types'
 import { pivotByDate } from '../../lib/chartData'
-import { seriesColor } from '../../lib/colors'
+import { candidateColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
+import { IconTile, type IconTone } from '../ui/IconTile'
 import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
@@ -21,6 +23,8 @@ interface Props {
   loading: boolean
   title?: string
   subtitle?: string
+  icon?: LucideIcon
+  tone?: IconTone
 }
 
 export function VolumeOverTimeChart({
@@ -28,7 +32,9 @@ export function VolumeOverTimeChart({
   points,
   loading,
   title = 'Volume de menções ao longo do tempo',
-  subtitle = 'Série diária por candidato · fonte: soma das redes selecionadas',
+  subtitle = 'Série diária por candidato',
+  icon = TrendingUp,
+  tone = 'purple',
 }: Props) {
   const data = pivotByDate(
     points,
@@ -37,9 +43,29 @@ export function VolumeOverTimeChart({
   )
 
   return (
-    <section className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
-      <h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
-      <p className="mb-4 text-xs text-[var(--text-muted)]">{subtitle}</p>
+    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
+      <div className="flex items-center gap-3">
+        <IconTile icon={icon} tone={tone} size={36} />
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
+          <p className="text-xs text-[var(--text-muted)]">{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 mb-2 flex flex-wrap gap-4 text-sm">
+        {entities.map((entity) => (
+          <span
+            key={entity.id}
+            className="flex items-center gap-1.5 text-[var(--text-secondary)]"
+          >
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: candidateColor(entity.id) }}
+            />
+            {entity.name}
+          </span>
+        ))}
+      </div>
 
       {loading || data.length === 0 ? (
         <div className="flex h-64 items-center justify-center text-sm text-[var(--text-muted)]">
@@ -68,13 +94,12 @@ export function VolumeOverTimeChart({
               width={40}
             />
             <Tooltip content={(props) => <ChartTooltip {...props} />} />
-            <Legend wrapperStyle={{ fontSize: 13, color: 'var(--text-secondary)' }} />
-            {entities.map((entity, index) => (
+            {entities.map((entity) => (
               <Line
                 key={entity.id}
                 dataKey={entity.id}
                 name={entity.name}
-                stroke={seriesColor(index)}
+                stroke={candidateColor(entity.id)}
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}

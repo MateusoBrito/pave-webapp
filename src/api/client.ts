@@ -152,18 +152,35 @@ export function getVolumeOverTime(
 export interface NetworkMentions {
   network: Network
   mentions: number
+  byEntity: { entityId: string; mentions: number }[]
 }
 
-/** GET /series/by-network — total de menções por rede, no período filtrado. */
+/** GET /series/by-network — menções por rede, com a divisão por candidato dentro
+ * de cada barra (para o gráfico empilhado da Visão Geral). */
 export function getMentionsByNetwork(
   entityIds: string[],
   period: PeriodFilter,
   networks: Network[] = [],
 ): Promise<NetworkMentions[]> {
-  const rows = filterSeries(period, { entityIds, networks })
-  const totals = new Map<Network, number>(NETWORKS.map((n) => [n.id, 0]))
-  for (const p of rows) totals.set(p.network, (totals.get(p.network) ?? 0) + p.mentions)
-  return delay(NETWORKS.map((n) => ({ network: n.id, mentions: totals.get(n.id) ?? 0 })))
+  const relevant = entityIds.length > 0 ? entityIds : ENTITIES.map((e) => e.id)
+  const rows = filterSeries(period, { entityIds: relevant, networks })
+
+  return delay(
+    NETWORKS.map((n) => {
+      const networkRows = rows.filter((p) => p.network === n.id)
+      const byEntity = relevant.map((entityId) => ({
+        entityId,
+        mentions: networkRows
+          .filter((p) => p.entityId === entityId)
+          .reduce((sum, p) => sum + p.mentions, 0),
+      }))
+      return {
+        network: n.id,
+        mentions: byEntity.reduce((sum, e) => sum + e.mentions, 0),
+        byEntity,
+      }
+    }),
+  )
 }
 
 export interface ShareOfVoiceEntry {
@@ -198,17 +215,17 @@ export function getShareOfVoice(
 export interface OverviewSummary {
   totalMentions: number
   deltaPct: number
-  sentiment: TopicSentiment
+  /** sentimento só das redes orgânicas — anúncio pago não é "clima do debate" público */
+  organicSentiment: TopicSentiment
   predominantSentiment: SentimentLabel
   activeTopics: number
   emergentCount: number
   daysCovered: number
   totalDays: number
-  networksCovered: number
   totalNetworks: number
 }
 
-/** GET /overview/summary — os 4 KPIs do topo da Visão Geral. */
+/** GET /overview/summary — os KPIs do topo da Visão Geral. */
 export function getOverviewSummary(
   entityIds: string[],
   period: PeriodFilter,
@@ -221,19 +238,23 @@ export function getOverviewSummary(
   const prevTotal = prevRows.reduce((sum, p) => sum + p.mentions, 0)
   const deltaPct = prevTotal > 0 ? ((totalMentions - prevTotal) / prevTotal) * 100 : 0
 
-  const sentiment = sumSentiment(rows)
+  const organicNetworks = NETWORKS.filter((n) => n.id !== 'meta_ads').map((n) => n.id)
+  const effectiveOrganic =
+    networks.length > 0 ? networks.filter((n) => n !== 'meta_ads') : organicNetworks
+  const organicRows = filterSeries(period, { entityIds, networks: effectiveOrganic })
+  const organicSentiment = sumSentiment(organicRows)
+
   const withData = rows.filter((p) => p.mentions > 0)
 
   return delay({
     totalMentions,
     deltaPct,
-    sentiment,
-    predominantSentiment: predominantOf(sentiment),
+    organicSentiment,
+    predominantSentiment: predominantOf(organicSentiment),
     activeTopics: new Set(withData.map((p) => p.topicId)).size,
     emergentCount: EMERGENT_TOPICS.length,
     daysCovered: new Set(withData.map((p) => p.date)).size,
     totalDays: daysBetween(period.from, period.to),
-    networksCovered: new Set(withData.map((p) => p.network)).size,
     totalNetworks: networks.length > 0 ? networks.length : NETWORKS.length,
   })
 }
@@ -242,59 +263,62 @@ export interface TopicRankingRow {
   topic: Topic
   mentions: number
   variationPct: number
-  /** id da entidade dominante, ou 'both' quando a diferença é pequena (<30%) */
-  dominantEntityId: string | 'both'
   dominantNetwork: Network
   sentiment: TopicSentiment
 }
 
-/** GET /topics/ranking — linhas da tabela (Visão Geral) e da lista de ranking (Tópicos). */
+const ORGANIC_NETWORKS: Network[] = NETWORKS.filter((n) => n.id !== 'meta_ads').map(
+  (n) => n.id,
+)
+
+/**
+ * GET /topics/ranking — linhas da tabela (Visão Geral) e da lista de ranking (Tópicos).
+ * Exclui Meta Ads sempre: anúncio pago é conteúdo do candidato, não conversa do público.
+ * Cada tópico já pertence a um candidato só (Topic.entityId) — nada a "dominar" aqui.
+ */
 export function getTopicRanking(
   entityIds: string[],
   period: PeriodFilter,
   networks: Network[] = [],
   limit?: number,
 ): Promise<TopicRankingRow[]> {
-  const relevant = entityIds.length > 0 ? entityIds : ENTITIES.map((e) => e.id)
-  const rows = filterSeries(period, { entityIds: relevant, networks })
-  const prevRows = filterSeries(previousPeriod(period), { entityIds: relevant, networks })
+  const effectiveNetworks =
+    networks.length > 0 ? networks.filter((n) => n !== 'meta_ads') : ORGANIC_NETWORKS
+  const relevantTopics =
+    entityIds.length > 0 ? TOPICS.filter((t) => entityIds.includes(t.entityId)) : TOPICS
 
-  const result: TopicRankingRow[] = TOPICS.map((topic) => {
-    const topicRows = rows.filter((p) => p.topicId === topic.id)
-    const mentions = topicRows.reduce((sum, p) => sum + p.mentions, 0)
-
-    const prevMentions = prevRows
-      .filter((p) => p.topicId === topic.id)
-      .reduce((sum, p) => sum + p.mentions, 0)
-    const variationPct =
-      prevMentions > 0 ? ((mentions - prevMentions) / prevMentions) * 100 : 0
-
-    const byEntity = new Map<string, number>(relevant.map((id) => [id, 0]))
-    for (const p of topicRows) {
-      if (byEntity.has(p.entityId))
-        byEntity.set(p.entityId, (byEntity.get(p.entityId) ?? 0) + p.mentions)
-    }
-    const sortedEntities = [...byEntity.entries()].sort((a, b) => b[1] - a[1])
-    const [topEntityId, topMentions] = sortedEntities[0] ?? [relevant[0], 0]
-    const secondMentions = sortedEntities[1]?.[1] ?? 0
-    const dominantEntityId: string | 'both' =
-      topMentions > 0 && secondMentions / topMentions > 0.7 ? 'both' : topEntityId
-
-    const byNetwork = new Map<Network, number>()
-    for (const p of topicRows)
-      byNetwork.set(p.network, (byNetwork.get(p.network) ?? 0) + p.mentions)
-    const dominantNetwork =
-      [...byNetwork.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? NETWORKS[0].id
-
-    return {
-      topic,
-      mentions,
-      variationPct,
-      dominantEntityId,
-      dominantNetwork,
-      sentiment: sumSentiment(topicRows),
-    }
+  const rows = filterSeries(period, { entityIds, networks: effectiveNetworks })
+  const prevRows = filterSeries(previousPeriod(period), {
+    entityIds,
+    networks: effectiveNetworks,
   })
+
+  const result: TopicRankingRow[] = relevantTopics
+    .map((topic) => {
+      const topicRows = rows.filter((p) => p.topicId === topic.id)
+      const mentions = topicRows.reduce((sum, p) => sum + p.mentions, 0)
+
+      const prevMentions = prevRows
+        .filter((p) => p.topicId === topic.id)
+        .reduce((sum, p) => sum + p.mentions, 0)
+      const variationPct =
+        prevMentions > 0 ? ((mentions - prevMentions) / prevMentions) * 100 : 0
+
+      const byNetwork = new Map<Network, number>()
+      for (const p of topicRows)
+        byNetwork.set(p.network, (byNetwork.get(p.network) ?? 0) + p.mentions)
+      const dominantNetwork =
+        [...byNetwork.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+        ORGANIC_NETWORKS[0]
+
+      return {
+        topic,
+        mentions,
+        variationPct,
+        dominantNetwork,
+        sentiment: sumSentiment(topicRows),
+      }
+    })
     .filter((row) => row.mentions > 0)
     .sort((a, b) => b.mentions - a.mentions)
 
@@ -446,37 +470,68 @@ export function getComparisonSummary(
   return delay({ entity, mentions, sentiment: sumSentiment(rows), topTopics })
 }
 
-export interface DivergingTopicRow {
-  topic: Topic
-  aMentions: number
-  bMentions: number
+export interface Highlight {
+  kind: 'top_topic' | 'network_growth'
+  title: string
+  description: string
 }
 
-/** GET /comparison/diverging-topics — onde cada candidato concentra a conversa. */
-export function getDivergingTopics(
-  entityIdA: string,
-  entityIdB: string,
+/**
+ * GET /overview/highlights — 1-2 frases de destaque geradas a partir dos mesmos
+ * agregados de `getTopicRanking`/`getMentionsByNetwork`, sem fonte de dado nova.
+ */
+export function getHighlights(
+  entityIds: string[],
   period: PeriodFilter,
   networks: Network[] = [],
-): Promise<DivergingTopicRow[]> {
-  const rows = filterSeries(period, { entityIds: [entityIdA, entityIdB], networks })
+): Promise<Highlight[]> {
+  const highlights: Highlight[] = []
+  const rows = filterSeries(period, { entityIds, networks })
+  const prevRows = filterSeries(previousPeriod(period), { entityIds, networks })
 
-  const result: DivergingTopicRow[] = TOPICS.map((topic) => {
-    const topicRows = rows.filter((p) => p.topicId === topic.id)
-    return {
-      topic,
-      aMentions: topicRows
-        .filter((p) => p.entityId === entityIdA)
-        .reduce((s, p) => s + p.mentions, 0),
-      bMentions: topicRows
-        .filter((p) => p.entityId === entityIdB)
-        .reduce((s, p) => s + p.mentions, 0),
+  const byTopic = new Map<string, number>()
+  for (const p of rows) byTopic.set(p.topicId, (byTopic.get(p.topicId) ?? 0) + p.mentions)
+  const topTopicEntry = [...byTopic.entries()].sort((a, b) => b[1] - a[1])[0]
+  const topTopic = topTopicEntry
+    ? TOPICS.find((t) => t.id === topTopicEntry[0])
+    : undefined
+  if (topTopic) {
+    highlights.push({
+      kind: 'top_topic',
+      title: `${topTopic.label} lidera a atenção.`,
+      description: 'Foi o assunto que mais ocupou espaço na conversa no período.',
+    })
+  }
+
+  const byNetwork = new Map<Network, number>()
+  const prevByNetwork = new Map<Network, number>()
+  for (const p of rows)
+    byNetwork.set(p.network, (byNetwork.get(p.network) ?? 0) + p.mentions)
+  for (const p of prevRows)
+    prevByNetwork.set(p.network, (prevByNetwork.get(p.network) ?? 0) + p.mentions)
+
+  let bestNetwork: Network | undefined
+  let bestGrowth = 0
+  for (const n of NETWORKS) {
+    const current = byNetwork.get(n.id) ?? 0
+    const prev = prevByNetwork.get(n.id) ?? 0
+    if (prev <= 0 || current <= 0) continue
+    const growth = ((current - prev) / prev) * 100
+    if (growth > bestGrowth) {
+      bestGrowth = growth
+      bestNetwork = n.id
     }
-  })
-    .filter((row) => row.aMentions + row.bMentions > 0)
-    .sort((a, b) => b.aMentions + b.bMentions - (a.aMentions + a.bMentions))
+  }
+  if (bestNetwork) {
+    const networkLabel = NETWORKS.find((n) => n.id === bestNetwork)?.label ?? bestNetwork
+    highlights.push({
+      kind: 'network_growth',
+      title: `Presença ganhou força no ${networkLabel}.`,
+      description: `O volume no ${networkLabel} foi ${bestGrowth.toFixed(0)}% maior que no período anterior.`,
+    })
+  }
 
-  return delay(result)
+  return delay(highlights)
 }
 
 /** GET /topics/{topicId}/documents — exemplos de posts p/ drill-down. */
@@ -491,6 +546,21 @@ export function getTopicDocuments(
         d.topicId === topicId &&
         (entityIds.length === 0 || entityIds.includes(d.entityId)) &&
         (networks.length === 0 || networks.includes(d.network)),
+    ).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)),
+  )
+}
+
+/**
+ * GET /candidates/posts — anúncios pagos postados pelos próprios candidatos (Meta Ad
+ * Library). Sempre só `meta_ads`, independente do filtro de rede: é o que o candidato
+ * publica, não conversa do público em outras redes.
+ */
+export function getCandidatePosts(entityIds: string[]): Promise<TopicDocument[]> {
+  return delay(
+    MOCK_DOCUMENTS.filter(
+      (d) =>
+        d.network === 'meta_ads' &&
+        (entityIds.length === 0 || entityIds.includes(d.entityId)),
     ).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)),
   )
 }

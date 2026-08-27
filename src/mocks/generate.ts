@@ -5,7 +5,6 @@ import type {
   TopicSentiment,
   TopicSeriesPoint,
 } from '../types'
-import { ENTITIES } from './entities'
 import { TOPICS } from './topics'
 
 // 180 dias — cobre com folga até o preset de 90d + seu período anterior de mesma duração
@@ -43,33 +42,20 @@ const NETWORK_VOLUME_FACTOR: Record<Network, number> = {
  * não faz parte do contrato real de dados; a análise de sentimento real (Fase 4) vai
  * produzir isso a partir do texto. */
 const TOPIC_NEGATIVITY_BIAS: Record<string, number> = {
-  'economia-inflacao': 0.55,
-  'seguranca-publica': 0.6,
-  'saude-sus': 0.5,
-  'anistia-8-jan': 0.6,
-  educacao: 0.35,
-  corrupcao: 0.65,
-  'meio-ambiente': 0.4,
-}
-
-/** Quanto do volume de cada tópico é atribuído a "lula" (o resto vai para o outro
- * candidato) — só geração; no pipeline real isso emerge de qual documento fala de quem. */
-const TOPIC_LULA_SHARE: Record<string, number> = {
-  'economia-inflacao': 0.78,
-  'seguranca-publica': 0.15,
-  'saude-sus': 0.82,
-  'anistia-8-jan': 0.1,
-  educacao: 0.75,
-  corrupcao: 0.5,
-  'meio-ambiente': 0.68,
+  'lula-economia-inflacao': 0.55,
+  'lula-saude-sus': 0.5,
+  'lula-educacao': 0.35,
+  'lula-programas-sociais': 0.25,
+  'lula-aprovacao': 0.5,
+  'flavio-seguranca-publica': 0.6,
+  'flavio-anistia-8-jan': 0.6,
+  'flavio-processos': 0.65,
+  'flavio-articulacao': 0.4,
+  'flavio-agenda-economica': 0.35,
 }
 
 function negativityBias(topicId: string): number {
   return TOPIC_NEGATIVITY_BIAS[topicId] ?? 0.4
-}
-
-function lulaShareOf(topicId: string): number {
-  return TOPIC_LULA_SHARE[topicId] ?? 0.5
 }
 
 function sentimentShares(bias: number, seed: string) {
@@ -107,7 +93,6 @@ function generateSeries(): TopicSeriesPoint[] {
 
   for (const topic of TOPICS) {
     const bias = negativityBias(topic.id)
-    const lulaShare = lulaShareOf(topic.id)
 
     for (const { id: network } of NETWORKS) {
       const base = topic.weight * 2600 * NETWORK_VOLUME_FACTOR[network]
@@ -119,23 +104,16 @@ function generateSeries(): TopicSeriesPoint[] {
         // pico simulado a meio do período para dar "surgimento, pico e decaimento"
         const distanceFromPeak = Math.abs(daysAgo - DAYS / 2)
         const peakBoost = Math.max(0, 1 - distanceFromPeak / (DAYS / 2)) * 0.8
-        const dayBase = base * (0.4 + noise * 0.6 + peakBoost)
+        const mentions = Math.max(0, Math.round(base * (0.4 + noise * 0.6 + peakBoost)))
 
-        for (const entity of ENTITIES) {
-          const entitySeed = `${seed}-${entity.id}`
-          const share = entity.id === 'lula' ? lulaShare : 1 - lulaShare
-          const entityNoise = 0.85 + seededRandom(entitySeed) * 0.3
-          const mentions = Math.max(0, Math.round(dayBase * share * entityNoise))
-
-          points.push({
-            date,
-            entityId: entity.id,
-            network,
-            topicId: topic.id,
-            mentions,
-            sentiment: splitSentiment(mentions, bias, entitySeed),
-          })
-        }
+        points.push({
+          date,
+          entityId: topic.entityId,
+          network,
+          topicId: topic.id,
+          mentions,
+          sentiment: splitSentiment(mentions, bias, seed),
+        })
       }
     }
   }
@@ -160,7 +138,6 @@ function generateDocuments(): TopicDocument[] {
 
   for (const topic of TOPICS) {
     const bias = negativityBias(topic.id)
-    const lulaShare = lulaShareOf(topic.id)
 
     for (let i = 0; i < 8; i++) {
       seq++
@@ -170,17 +147,13 @@ function generateDocuments(): TopicDocument[] {
       const templateIndex = Math.floor(seededRandom(seed + 't') * TEMPLATES.length)
       const authorIndex = Math.floor(seededRandom(seed + 'a') * AUTHOR_PREFIXES.length)
       const daysAgo = Math.floor(seededRandom(seed + 'd') * DAYS)
-      const entity =
-        seededRandom(seed + 'ent') < lulaShare
-          ? ENTITIES.find((e) => e.id === 'lula')!
-          : ENTITIES.find((e) => e.id !== 'lula')!
       // anúncio paga por alcance/gasto, não por curtida — escala diferente do orgânico
       const engagementRange = network === 'meta_ads' ? 20000 : 1500
 
       documents.push({
         id: `doc-${seq}`,
         topicId: topic.id,
-        entityId: entity.id,
+        entityId: topic.entityId,
         network,
         author: `${AUTHOR_PREFIXES[authorIndex]}_${Math.floor(seededRandom(seed + 'u') * 999)}`,
         text: TEMPLATES[templateIndex].replace('{topic}', topic.label.toLowerCase()),

@@ -3,7 +3,7 @@ import type { TopicSentiment } from './topic'
 
 /** One row of the analytical aggregation: day x entity x network x topic. */
 export interface TopicSeriesPoint {
-  date: string 
+  date: string
   entityId: string
   network: Network
   topicId: string

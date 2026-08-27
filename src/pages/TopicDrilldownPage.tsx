@@ -42,6 +42,11 @@ export function TopicDrilldownPage() {
     deps,
   )
 
+  // cada tópico pertence a um candidato só — a legenda mostra só quem fala dele
+  const topicOwnerEntities = detail
+    ? selectedEntities.filter((e) => e.id === detail.topic.entityId)
+    : selectedEntities
+
   usePageHeader(
     'Drill-down de Tópico',
     `${detail?.topic.label ?? '...'} · ${formatDateRange(period)}`,
@@ -75,7 +80,7 @@ export function TopicDrilldownPage() {
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <VolumeOverTimeChart
-          entities={selectedEntities}
+          entities={topicOwnerEntities}
           points={candidateSeries}
           loading={seriesLoading}
           title="Evolução do tópico"

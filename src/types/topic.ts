@@ -1,12 +1,13 @@
 /**
- * Tópicos são globais — o BERTopic roda sobre o corpus inteiro (todos os candidatos),
- * alinhado entre redes (Fase 2). Quanto cada candidato fala de um tópico é um dado do
- * TopicSeriesPoint/TopicDocument (entityId), não do tópico em si — um tópico como
- * "Corrupção" pode ser predominantemente de um candidato, do outro, ou de ambos.
+ * Cada tópico pertence a um candidato só — o modelo (BERTopic) roda sobre o corpus
+ * de cada candidato separadamente, alinhado entre redes (Fase 2). Não existe tópico
+ * compartilhado entre candidatos.
  */
 export interface Topic {
   id: string
+  entityId: string
   label: string
+  /** overall share of the entity's own documents this topic represents, 0-1 */
   weight: number
   tags: string[]
 }

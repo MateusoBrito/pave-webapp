@@ -12,18 +12,19 @@ import {
   YAxis,
 } from 'recharts'
 import type { Topic, TopicSeriesPoint } from '../../types'
+import { SegmentedControl } from '../ui/SegmentedControl'
 import { pivotByDate } from '../../lib/chartData'
-import { seriesColor } from '../../lib/colors'
+import { topicColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
 import { ChartTooltip } from './ChartTooltip'
 
 type Mode = 'stacked' | 'percent' | 'lines'
 
-const MODE_LABEL: Record<Mode, string> = {
-  stacked: 'Empilhado',
-  percent: '100%',
-  lines: 'Linhas',
-}
+const MODE_OPTIONS: { value: Mode; label: string }[] = [
+  { value: 'stacked', label: 'Empilhado' },
+  { value: 'percent', label: '100%' },
+  { value: 'lines', label: 'Linhas' },
+]
 // soft cap de séries categóricas (dataviz skill) — o resto dobra em "Outros"
 const FEATURED_COUNT = 4
 
@@ -76,7 +77,7 @@ export function TopicsStackedChart({ topics, series, loading }: Props) {
   }, [series, featured, rest, mode, chartSeries])
 
   return (
-    <section className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
+    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -87,22 +88,7 @@ export function TopicsStackedChart({ topics, series, loading }: Props) {
             tempo
           </p>
         </div>
-        <div className="flex gap-1">
-          {(Object.keys(MODE_LABEL) as Mode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${
-                mode === m
-                  ? 'border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--chart-surface)]'
-                  : 'border-[var(--baseline)] text-[var(--text-secondary)] hover:bg-black/5 dark:hover:bg-white/10'
-              }`}
-            >
-              {MODE_LABEL[m]}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl options={MODE_OPTIONS} value={mode} onChange={setMode} />
       </div>
 
       {loading || data.length === 0 ? (
@@ -138,7 +124,7 @@ export function TopicsStackedChart({ topics, series, loading }: Props) {
                 key={topic.id}
                 dataKey={topic.id}
                 name={topic.label}
-                stroke={seriesColor(index)}
+                stroke={topicColor(index)}
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
@@ -177,9 +163,9 @@ export function TopicsStackedChart({ topics, series, loading }: Props) {
                 dataKey={topic.id}
                 name={topic.label}
                 stackId="topics"
-                stroke={seriesColor(index)}
+                stroke={topicColor(index)}
                 strokeWidth={2}
-                fill={seriesColor(index)}
+                fill={topicColor(index)}
                 fillOpacity={0.55}
                 isAnimationActive={false}
               />

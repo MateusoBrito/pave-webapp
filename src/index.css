@@ -1,41 +1,60 @@
 @import 'tailwindcss';
 
+/*
+ * Design tokens — "Estilo visual · PAVE". Roxo primário é reservado para chrome
+ * de UI (botões, foco, estado ativo) e nunca representa um candidato; só Lula e
+ * Flávio têm cor de identidade própria (ver lib/colors.ts). Tema único — sem
+ * dark mode. A sidebar escura é uma cor fixa do componente (--sidebar-*), não
+ * uma variação de tema.
+ */
 :root {
   color-scheme: light;
-  --chart-surface: #fcfcfb;
-  --page-plane: #f9f9f7;
-  --sidebar-surface: #f3f2ef;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --gridline: #e1e0d9;
-  --baseline: #c3c2b7;
 
-  --series-1: #1f1f1d;
-  --series-2: #6b6a65;
-  --series-3: #9d9c96;
-  --series-4: #c3c2b7;
-  --series-5: #dedcd3;
-}
+  --color-primary: #6c4ef5;
+  --color-primary-dark: #4b2fd6;
+  --color-primary-light: #efeafe;
+  --color-graphite: #2a2d37;
+  --color-coral: #f0334a;
+  --color-amber: #f59e0b;
+  --color-green: #16a34a;
+  --color-pink: #ec4899;
+  --color-blue: #0866ff;
+  --color-orange: #ff4a17;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --chart-surface: #1a1a19;
-    --page-plane: #0d0d0d;
-    --sidebar-surface: #151513;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --gridline: #2c2c2a;
-    --baseline: #383835;
+  /* cores de candidato — identidade fixa, nunca posicional */
+  --color-lula: #0e7490;
+  --color-flavio: #f59e0b;
 
-    --series-1: #f5f4f0;
-    --series-2: #b8b6ad;
-    --series-3: #8a8983;
-    --series-4: #5c5b56;
-    --series-5: #403f3b;
-  }
+  --page-plane: #efeff2;
+  --chart-surface: #ffffff;
+  --text-primary: #111114;
+  --text-secondary: #52525b;
+  --text-muted: #6b7280;
+  --gridline: #e3e3e8;
+  --baseline: #d3d3da;
+
+  /* fundos pastéis dos tiles de ícone — tons fixos, não computados em runtime */
+  --tint-primary: #efeafe;
+  --tint-green: #e3f6ea;
+  --tint-coral: #fde7ea;
+  --tint-amber: #fef3e0;
+  --tint-pink: #fce7f3;
+  --tint-blue: #e5efff;
+  --tint-graphite: #e9e9ed;
+
+  /* texto legível sobre o próprio tint (ex.: "Negativo" no card de clima do debate) */
+  --tint-text-primary: #4b2fd6;
+  --tint-text-green: #0f5f32;
+  --tint-text-coral: #8e1024;
+  --tint-text-amber: #8a6410;
+  --tint-text-blue: #0b4f63;
+
+  /* sidebar — escura por design, fixa (não é dark mode) */
+  --sidebar-bg: #111114;
+  --sidebar-text: #f5f5f7;
+  --sidebar-text-muted: #9ca3af;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
 }
 
 body {

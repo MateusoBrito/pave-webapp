@@ -1,6 +1,6 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import type { TopicSentiment } from '../../types'
-import { seriesColor } from '../../lib/colors'
+import type { SentimentLabel, TopicSentiment } from '../../types'
+import { sentimentColor } from '../../lib/colors'
 import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
@@ -8,24 +8,22 @@ interface Props {
   loading: boolean
 }
 
-const ORDER: { key: keyof TopicSentiment; label: string; colorIndex: number }[] = [
-  { key: 'negative', label: 'Negativo', colorIndex: 0 },
-  { key: 'neutral', label: 'Neutro', colorIndex: 2 },
-  { key: 'positive', label: 'Positivo', colorIndex: 4 },
+const ORDER: { key: SentimentLabel; label: string }[] = [
+  { key: 'negative', label: 'Negativo' },
+  { key: 'neutral', label: 'Neutro' },
+  { key: 'positive', label: 'Positivo' },
 ]
 
 export function SentimentDonut({ sentiment, loading }: Props) {
   const rows = sentiment
-    ? ORDER.map((o) => ({
-        name: o.label,
-        value: sentiment[o.key],
-        colorIndex: o.colorIndex,
-      })).filter((r) => r.value > 0)
+    ? ORDER.map((o) => ({ key: o.key, name: o.label, value: sentiment[o.key] })).filter(
+        (r) => r.value > 0,
+      )
     : []
   const total = rows.reduce((s, r) => s + r.value, 0) || 1
 
   return (
-    <section className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
+    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <h2 className="text-sm font-semibold text-[var(--text-primary)]">
         Distribuição de sentimento
       </h2>
@@ -53,7 +51,7 @@ export function SentimentDonut({ sentiment, loading }: Props) {
                 strokeWidth={2}
               >
                 {rows.map((row) => (
-                  <Cell key={row.name} fill={seriesColor(row.colorIndex)} />
+                  <Cell key={row.name} fill={sentimentColor(row.key)} />
                 ))}
               </Pie>
               <Tooltip content={(props) => <ChartTooltip {...props} />} />
@@ -64,7 +62,7 @@ export function SentimentDonut({ sentiment, loading }: Props) {
               <li key={row.name} className="flex items-center gap-2 text-sm">
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: seriesColor(row.colorIndex) }}
+                  style={{ backgroundColor: sentimentColor(row.key) }}
                 />
                 <span className="text-[var(--text-secondary)]">{row.name}</span>
                 <span className="font-semibold text-[var(--text-primary)]">

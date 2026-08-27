@@ -1,16 +1,11 @@
 import { NETWORKS } from '../../types'
 import type { TopicDocument } from '../../types'
-import { seriesColor } from '../../lib/colors'
+import { sentimentColor } from '../../lib/colors'
 
 const SENTIMENT_LABEL: Record<string, string> = {
   negative: 'Negativo',
   neutral: 'Neutro',
   positive: 'Positivo',
-}
-const SENTIMENT_COLOR_INDEX: Record<string, number> = {
-  negative: 0,
-  neutral: 2,
-  positive: 4,
 }
 
 function networkLabel(id: string): string {
@@ -31,7 +26,7 @@ interface Props {
 
 export function ExamplePostsList({ documents, loading }: Props) {
   return (
-    <section className="rounded-xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
+    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <h2 className="text-sm font-semibold text-[var(--text-primary)]">
         Exemplos de posts
       </h2>
@@ -59,9 +54,7 @@ export function ExamplePostsList({ documents, loading }: Props) {
               <span className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-secondary)]">
                 <span
                   className="h-1.5 w-1.5 rounded-full"
-                  style={{
-                    backgroundColor: seriesColor(SENTIMENT_COLOR_INDEX[doc.sentiment]),
-                  }}
+                  style={{ backgroundColor: sentimentColor(doc.sentiment) }}
                 />
                 {SENTIMENT_LABEL[doc.sentiment]}
               </span>

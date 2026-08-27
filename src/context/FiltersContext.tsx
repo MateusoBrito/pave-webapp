@@ -13,11 +13,9 @@ export interface FiltersValue {
   networks: Network[]
   days: number
   period: PeriodFilter
-  topicId: string | undefined
   setCandidateIds: (ids: string[]) => void
   setNetworks: (networks: Network[]) => void
   setDays: (days: number) => void
-  setTopicId: (id: string | undefined) => void
   clearFilters: () => void
 }
 
@@ -39,7 +37,6 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     [searchParams],
   )
   const days = Number(searchParams.get('days')) || DEFAULT_DAYS
-  const topicId = searchParams.get('topic') ?? undefined
   const period = useMemo(() => lastNDaysPeriod(days), [days])
 
   function update(patch: Record<string, string | null>) {
@@ -61,11 +58,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     networks,
     days,
     period,
-    topicId,
     setCandidateIds: (ids) => update({ candidates: ids.join(',') || null }),
     setNetworks: (nets) => update({ networks: nets.join(',') || null }),
     setDays: (d) => update({ days: d === DEFAULT_DAYS ? null : String(d) }),
-    setTopicId: (id) => update({ topic: id ?? null }),
     clearFilters: () => setSearchParams(new URLSearchParams(), { replace: true }),
   }
 
