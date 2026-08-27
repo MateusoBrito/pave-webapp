@@ -44,6 +44,8 @@
 
   /* sombra padrão dos cards tintados (KPI, destaque) — Figma */
   --card-shadow: 0 4px 14px -2px rgba(23, 23, 41, 0.05);
+  /* sombra dos modais — mais pronunciada, o card flutua bem acima da página */
+  --modal-shadow: 0 20px 56px -8px rgba(15, 13, 38, 0.28);
 
   /* texto legível sobre o próprio tint (ex.: "Negativo" no card de clima do debate) */
   --tint-text-primary: #4b2fd6;

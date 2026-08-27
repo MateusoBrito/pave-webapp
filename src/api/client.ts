@@ -9,7 +9,14 @@ import type {
   TopicSentiment,
   TopicSeriesPoint,
 } from '../types'
-import { EMERGENT_TOPICS, ENTITIES, MOCK_DOCUMENTS, MOCK_SERIES, TOPICS } from '../mocks'
+import {
+  EMERGENT_TOPICS,
+  ENTITIES,
+  getCustomEntities,
+  MOCK_DOCUMENTS,
+  MOCK_SERIES,
+  TOPICS,
+} from '../mocks'
 
 /**
  * Camada de acesso a dados. Hoje lê dos mocks com uma latência simulada; quando o
@@ -92,9 +99,10 @@ function filterSeries(
   )
 }
 
-/** GET /entities — registro de entidades (candidatos + aliases). */
+/** GET /entities — registro de entidades (candidatos + aliases). Inclui as entidades
+ * que o usuário adicionou nesta sessão via "Adicionar candidato" (ver mocks/customEntities). */
 export function getEntities(): Promise<Entity[]> {
-  return delay(ENTITIES)
+  return delay([...ENTITIES, ...getCustomEntities()])
 }
 
 /** GET /topics — tópicos globais alinhados entre redes (Fase 2). */
