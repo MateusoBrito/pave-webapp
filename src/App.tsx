@@ -12,12 +12,12 @@ function App() {
   return (
     <FiltersProvider>
       <PageHeaderProvider>
-        <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[280px_1fr]">
+        <div className="min-h-screen">
           <Sidebar open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-          <div className="flex flex-col">
+          <div className="flex flex-col lg:ml-[280px]">
             <TopBar onMenuClick={() => setMobileNavOpen(true)} />
             <FilterBar />
-            <main className="flex flex-col gap-6 p-4 sm:p-6">
+            <main className="flex flex-col gap-6 px-4 pt-6 pb-4 sm:px-6 sm:pb-6">
               <Outlet />
             </main>
           </div>

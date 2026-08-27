@@ -1,8 +1,8 @@
 import { Columns3, Home, Info, Megaphone, MessageCircle, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
-import { Avatar } from '../ui/Avatar'
 import { FOCUS_RING } from '../ui/focusRing'
+import { ProfileMenu } from './ProfileMenu'
 
 const NAV_ITEMS: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/', label: 'Visão Geral', icon: Home },
@@ -28,7 +28,7 @@ export function Sidebar({ open, onClose }: Props) {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full transform flex-col justify-between bg-[var(--sidebar-bg)] px-4 py-6 transition-transform duration-200 lg:static lg:z-auto lg:w-full lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full transform flex-col justify-between bg-[var(--sidebar-bg)] px-4 py-6 transition-transform duration-200 lg:w-[280px] lg:translate-x-0 ${
           open ? 'translate-x-0' : ''
         }`}
       >
@@ -74,15 +74,7 @@ export function Sidebar({ open, onClose }: Props) {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3 border-t border-[var(--sidebar-border)] px-1 pt-4">
-          <Avatar name="Lucas Rivetti" color="var(--color-primary)" size={36} />
-          <div>
-            <p className="text-sm font-medium text-[var(--sidebar-text)]">
-              Lucas Rivetti
-            </p>
-            <p className="text-xs text-[var(--sidebar-text-muted)]">Equipe LabPi</p>
-          </div>
-        </div>
+        <ProfileMenu />
       </aside>
     </>
   )
