@@ -44,6 +44,7 @@ export function CandidateAvatarFilter() {
                 color={candidateColor(entity.id)}
                 selected={selected}
                 size={44}
+                photoUrl={entity.photoUrl}
               />
               <span className="text-[var(--text-secondary)]">
                 {shortName(entity.name)}

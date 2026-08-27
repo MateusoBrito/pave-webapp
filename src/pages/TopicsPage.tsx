@@ -21,33 +21,65 @@ export function TopicsPage() {
   const deps = [candidateIds.join(','), period.from, period.to, networks.join(',')]
 
   const { data: topics = [] } = useAsync(() => getTopics(), [])
-  const { data: series = [], loading: seriesLoading } = useAsync(
-    () => getTopicSeries({ entityIds: candidateIds, networks, period }),
-    deps,
-  )
-  const { data: ranking = [], loading: rankingLoading } = useAsync(
-    () => getTopicRanking(candidateIds, period, networks),
-    deps,
-  )
-  const { data: matrix = [], loading: matrixLoading } = useAsync(
+  const {
+    data: series = [],
+    loading: seriesLoading,
+    error: seriesError,
+    refetch: refetchSeries,
+  } = useAsync(() => getTopicSeries({ entityIds: candidateIds, networks, period }), deps)
+  const {
+    data: ranking = [],
+    loading: rankingLoading,
+    error: rankingError,
+    refetch: refetchRanking,
+  } = useAsync(() => getTopicRanking(candidateIds, period, networks), deps)
+  const {
+    data: matrix = [],
+    loading: matrixLoading,
+    error: matrixError,
+    refetch: refetchMatrix,
+  } = useAsync(
     () => getTopicsByNetworkMatrix(candidateIds, period),
     [candidateIds.join(','), period.from, period.to],
   )
-  const { data: emergent = [], loading: emergentLoading } = useAsync(
-    () => getEmergentTopics(),
-    [],
-  )
+  const {
+    data: emergent = [],
+    loading: emergentLoading,
+    error: emergentError,
+    refetch: refetchEmergent,
+  } = useAsync(() => getEmergentTopics(), [])
 
   return (
     <>
-      <TopicsStackedChart topics={topics} series={series} loading={seriesLoading} />
+      <TopicsStackedChart
+        topics={topics}
+        series={series}
+        loading={seriesLoading}
+        error={seriesError}
+        refetch={refetchSeries}
+      />
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <TopicsRankingList rows={ranking} loading={rankingLoading} />
-        <TopicsByNetworkGrid rows={matrix} loading={matrixLoading} />
+        <TopicsRankingList
+          rows={ranking}
+          loading={rankingLoading}
+          error={rankingError}
+          refetch={refetchRanking}
+        />
+        <TopicsByNetworkGrid
+          rows={matrix}
+          loading={matrixLoading}
+          error={matrixError}
+          refetch={refetchMatrix}
+        />
       </section>
 
-      <EmergentTopicsRow topics={emergent} loading={emergentLoading} />
+      <EmergentTopicsRow
+        topics={emergent}
+        loading={emergentLoading}
+        error={emergentError}
+        refetch={refetchEmergent}
+      />
     </>
   )
 }

@@ -1,6 +1,10 @@
+import { AlertTriangle, Inbox } from 'lucide-react'
 import { NETWORKS } from '../../types'
 import type { TopicDocument } from '../../types'
+import { useFilters } from '../../context/FiltersContext'
 import { sentimentColor } from '../../lib/colors'
+import { TableCardSkeleton } from '../ui/skeletons'
+import { StatusCard } from '../ui/StatusCard'
 
 const SENTIMENT_LABEL: Record<string, string> = {
   negative: 'Negativo',
@@ -22,9 +26,14 @@ function engagementLabel(doc: TopicDocument): string {
 interface Props {
   documents: TopicDocument[]
   loading: boolean
+  error?: Error
+  refetch?: () => void
 }
 
-export function ExamplePostsList({ documents, loading }: Props) {
+export function ExamplePostsList({ documents, loading, error, refetch }: Props) {
+  const { clearFilters } = useFilters()
+  const isEmpty = !loading && !error && documents.length === 0
+
   return (
     <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <h2 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -34,10 +43,30 @@ export function ExamplePostsList({ documents, loading }: Props) {
         Conteúdo público · autores anonimizados conforme política de retenção (LGPD)
       </p>
 
-      {loading ? (
-        <div className="flex h-40 items-center justify-center text-sm text-[var(--text-muted)]">
-          Carregando…
-        </div>
+      {error ? (
+        <StatusCard
+          icon={AlertTriangle}
+          tone="coral"
+          title="Não foi possível carregar"
+          description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+          primaryAction={
+            refetch ? { label: 'Tentar novamente', onClick: refetch } : undefined
+          }
+          secondaryAction={{
+            label: `Copiar código do erro · ${error.message || '500'}`,
+            onClick: () => navigator.clipboard?.writeText(error.message || '500'),
+          }}
+        />
+      ) : loading ? (
+        <TableCardSkeleton rows={5} />
+      ) : isEmpty ? (
+        <StatusCard
+          icon={Inbox}
+          tone="graphite"
+          title="Nenhum post encontrado"
+          description="Nenhum exemplo disponível para esta combinação de filtros."
+          primaryAction={{ label: 'Limpar filtros', onClick: clearFilters }}
+        />
       ) : (
         <ul className="flex flex-col">
           {documents.map((doc) => (

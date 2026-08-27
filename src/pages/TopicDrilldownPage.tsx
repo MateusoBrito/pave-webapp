@@ -34,7 +34,12 @@ export function TopicDrilldownPage() {
     networks.join(','),
   ]
 
-  const { data: detail, loading: detailLoading } = useAsync(
+  const {
+    data: detail,
+    loading: detailLoading,
+    error: detailError,
+    refetch: refetchDetail,
+  } = useAsync(
     () =>
       topicId
         ? getTopicDetail(topicId, candidateIds, period, networks)
@@ -52,21 +57,36 @@ export function TopicDrilldownPage() {
     `${detail?.topic.label ?? '...'} · ${formatDateRange(period)}`,
   )
 
-  const { data: candidateSeries = [], loading: seriesLoading } = useAsync(
+  const {
+    data: candidateSeries = [],
+    loading: seriesLoading,
+    error: seriesError,
+    refetch: refetchSeries,
+  } = useAsync(
     () =>
       topicId
         ? getTopicCandidateSeries(topicId, candidateIds, period, networks)
         : Promise.resolve([]),
     deps,
   )
-  const { data: sentimentSeries = [], loading: sentimentLoading } = useAsync(
+  const {
+    data: sentimentSeries = [],
+    loading: sentimentLoading,
+    error: sentimentError,
+    refetch: refetchSentiment,
+  } = useAsync(
     () =>
       topicId
         ? getSentimentSeries(topicId, candidateIds, period, networks)
         : Promise.resolve([]),
     deps,
   )
-  const { data: documents = [], loading: documentsLoading } = useAsync(
+  const {
+    data: documents = [],
+    loading: documentsLoading,
+    error: documentsError,
+    refetch: refetchDocuments,
+  } = useAsync(
     () =>
       topicId
         ? getTopicDocuments(topicId, { entityIds: candidateIds, networks })
@@ -76,22 +96,45 @@ export function TopicDrilldownPage() {
 
   return (
     <>
-      <TopicHeader detail={detail} loading={detailLoading} />
+      <TopicHeader
+        detail={detail}
+        loading={detailLoading}
+        error={detailError}
+        refetch={refetchDetail}
+      />
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <VolumeOverTimeChart
           entities={topicOwnerEntities}
           points={candidateSeries}
           loading={seriesLoading}
+          error={seriesError}
+          refetch={refetchSeries}
+          period={period}
           title="Evolução do tópico"
-          subtitle="Menções/dia por candidato · anotações de eventos"
+          subtitle="Menções/dia por candidato"
         />
-        <SentimentDonut sentiment={detail?.sentiment} loading={detailLoading} />
+        <SentimentDonut
+          sentiment={detail?.sentiment}
+          loading={detailLoading}
+          error={detailError}
+          refetch={refetchDetail}
+        />
       </section>
 
-      <SentimentOverTimeChart points={sentimentSeries} loading={sentimentLoading} />
+      <SentimentOverTimeChart
+        points={sentimentSeries}
+        loading={sentimentLoading}
+        error={sentimentError}
+        refetch={refetchSentiment}
+      />
 
-      <ExamplePostsList documents={documents} loading={documentsLoading} />
+      <ExamplePostsList
+        documents={documents}
+        loading={documentsLoading}
+        error={documentsError}
+        refetch={refetchDocuments}
+      />
     </>
   )
 }

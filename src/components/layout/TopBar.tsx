@@ -15,7 +15,7 @@ export function TopBar({ onMenuClick }: Props) {
   const { data: status } = useAsync(() => getCollectionStatus(), [])
 
   return (
-    <header className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--baseline)] px-4 py-4 sm:px-6">
+    <header className="flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6">
       <div className="flex items-start gap-3">
         <button
           type="button"

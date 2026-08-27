@@ -1,19 +1,25 @@
-import { PieChart as PieIcon } from 'lucide-react'
+import { AlertTriangle, Inbox, PieChart as PieIcon } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import type { ShareOfVoiceEntry } from '../../api/client'
 import type { Entity } from '../../types'
+import { useFilters } from '../../context/FiltersContext'
 import { candidateColor } from '../../lib/colors'
 import { formatCompactNumber } from '../../lib/format'
 import { IconTile } from '../ui/IconTile'
+import { ChartCardSkeleton } from '../ui/skeletons'
+import { StatusCard } from '../ui/StatusCard'
 import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
   entities: Entity[]
   data: ShareOfVoiceEntry[]
   loading: boolean
+  error?: Error
+  refetch?: () => void
 }
 
-export function ShareOfVoiceChart({ entities, data, loading }: Props) {
+export function ShareOfVoiceChart({ entities, data, loading, error, refetch }: Props) {
+  const { setDays, clearFilters } = useFilters()
   const rows = data
     .map((d) => ({
       entityId: d.entityId,
@@ -23,6 +29,7 @@ export function ShareOfVoiceChart({ entities, data, loading }: Props) {
     }))
     .filter((r) => r.mentions > 0)
   const total = rows.reduce((s, r) => s + r.mentions, 0)
+  const isEmpty = !loading && !error && rows.length === 0
 
   return (
     <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
@@ -38,29 +45,53 @@ export function ShareOfVoiceChart({ entities, data, loading }: Props) {
         </div>
       </div>
 
-      {loading || rows.length === 0 ? (
-        <div className="flex h-56 items-center justify-center text-sm text-[var(--text-muted)]">
-          Carregando…
-        </div>
-      ) : (
-        <>
-          <div className="mt-3 mb-2 flex flex-wrap gap-4 text-sm">
-            {rows.map((row) => (
+      {!loading && !error && !isEmpty && (
+        <div className="mt-3 mb-2 flex flex-wrap gap-4 text-sm">
+          {rows.map((row) => (
+            <span
+              key={row.entityId}
+              className="flex items-center gap-1.5 text-[var(--text-secondary)]"
+            >
               <span
-                key={row.entityId}
-                className="flex items-center gap-1.5 text-[var(--text-secondary)]"
-              >
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: candidateColor(row.entityId) }}
-                />
-                {row.name}{' '}
-                <strong className="text-[var(--text-primary)]">
-                  {(row.share * 100).toFixed(0)}%
-                </strong>
-              </span>
-            ))}
-          </div>
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: candidateColor(row.entityId) }}
+              />
+              {row.name}{' '}
+              <strong className="text-[var(--text-primary)]">
+                {(row.share * 100).toFixed(0)}%
+              </strong>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3">
+        {error ? (
+          <StatusCard
+            icon={AlertTriangle}
+            tone="coral"
+            title="Não foi possível carregar"
+            description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+            primaryAction={
+              refetch ? { label: 'Tentar novamente', onClick: refetch } : undefined
+            }
+            secondaryAction={{
+              label: `Copiar código do erro · ${error.message || '500'}`,
+              onClick: () => navigator.clipboard?.writeText(error.message || '500'),
+            }}
+          />
+        ) : loading ? (
+          <ChartCardSkeleton height={220} />
+        ) : isEmpty ? (
+          <StatusCard
+            icon={Inbox}
+            tone="graphite"
+            title="Nenhuma menção neste período"
+            description="Ninguém falou sobre este recorte no intervalo selecionado."
+            primaryAction={{ label: 'Ampliar para 90 dias', onClick: () => setDays(90) }}
+            secondaryAction={{ label: 'Limpar filtros', onClick: clearFilters }}
+          />
+        ) : (
           <div className="relative">
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -89,8 +120,8 @@ export function ShareOfVoiceChart({ entities, data, loading }: Props) {
               <p className="text-xs text-[var(--text-muted)]">menções no período</p>
             </div>
           </div>
-        </>
-      )}
+        )}
+      </div>
     </section>
   )
 }

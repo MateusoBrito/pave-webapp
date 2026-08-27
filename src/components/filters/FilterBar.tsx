@@ -9,7 +9,7 @@ export function FilterBar() {
   const { clearFilters } = useFilters()
 
   return (
-    <div className="flex flex-col gap-2 border-b border-[var(--baseline)] px-4 py-4 sm:px-6">
+    <div className="flex flex-col gap-2 px-4 py-4 sm:px-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <CandidateAvatarFilter />
         <PeriodFilterCard />

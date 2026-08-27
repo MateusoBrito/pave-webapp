@@ -1,4 +1,4 @@
-import { BarChart3 } from 'lucide-react'
+import { AlertTriangle, BarChart3, Inbox } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -12,15 +12,20 @@ import {
 import type { NetworkMentions } from '../../api/client'
 import { NETWORKS } from '../../types'
 import type { Entity } from '../../types'
+import { useFilters } from '../../context/FiltersContext'
 import { candidateColor } from '../../lib/colors'
 import { formatCompactNumber } from '../../lib/format'
 import { IconTile } from '../ui/IconTile'
+import { ChartCardSkeleton } from '../ui/skeletons'
+import { StatusCard } from '../ui/StatusCard'
 import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
   entities: Entity[]
   data: NetworkMentions[]
   loading: boolean
+  error?: Error
+  refetch?: () => void
 }
 
 interface SegmentLabelProps {
@@ -34,7 +39,16 @@ interface SegmentLabelProps {
   index?: number
 }
 
-export function MentionsByNetworkChart({ entities, data, loading }: Props) {
+export function MentionsByNetworkChart({
+  entities,
+  data,
+  loading,
+  error,
+  refetch,
+}: Props) {
+  const { setDays, clearFilters } = useFilters()
+  const isEmpty = !loading && !error && data.every((d) => d.mentions === 0)
+
   const rows = data.map((d) => {
     const row: Record<string, number | string> = {
       label: NETWORKS.find((n) => n.id === d.network)?.label ?? d.network,
@@ -111,69 +125,94 @@ export function MentionsByNetworkChart({ entities, data, loading }: Props) {
         </div>
       </div>
 
-      <div className="mt-3 mb-2 flex flex-wrap gap-4 text-sm">
-        {entities.map((entity) => (
-          <span
-            key={entity.id}
-            className="flex items-center gap-1.5 text-[var(--text-secondary)]"
-          >
+      {!loading && !error && !isEmpty && (
+        <div className="mt-3 mb-2 flex flex-wrap gap-4 text-sm">
+          {entities.map((entity) => (
             <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: candidateColor(entity.id) }}
-            />
-            {entity.name}
-          </span>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="flex h-56 items-center justify-center text-sm text-[var(--text-muted)]">
-          Carregando…
+              key={entity.id}
+              className="flex items-center gap-1.5 text-[var(--text-secondary)]"
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: candidateColor(entity.id) }}
+              />
+              {entity.name}
+            </span>
+          ))}
         </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={rows} margin={{ top: 24, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid
-              stroke="var(--gridline)"
-              strokeDasharray="0"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="label"
-              tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-              axisLine={{ stroke: 'var(--baseline)' }}
-              tickLine={false}
-            />
-            <YAxis
-              allowDecimals={false}
-              tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-              axisLine={false}
-              tickLine={false}
-              width={40}
-            />
-            <Tooltip
-              content={(props) => <ChartTooltip {...props} />}
-              cursor={{ fill: 'var(--gridline)' }}
-            />
-            {entities.map((entity, index) => (
-              <Bar
-                key={entity.id}
-                dataKey={entity.id}
-                name={entity.name}
-                stackId="net"
-                fill={candidateColor(entity.id)}
-                isAnimationActive={false}
-                radius={index === entities.length - 1 ? [6, 6, 0, 0] : undefined}
-              >
-                <LabelList dataKey={entity.id} content={renderPercentLabel} />
-                {index === entities.length - 1 && (
-                  <LabelList dataKey={entity.id} content={renderTotalLabel} />
-                )}
-              </Bar>
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
       )}
+
+      <div className="mt-3">
+        {error ? (
+          <StatusCard
+            icon={AlertTriangle}
+            tone="coral"
+            title="Não foi possível carregar"
+            description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+            primaryAction={
+              refetch ? { label: 'Tentar novamente', onClick: refetch } : undefined
+            }
+            secondaryAction={{
+              label: `Copiar código do erro · ${error.message || '500'}`,
+              onClick: () => navigator.clipboard?.writeText(error.message || '500'),
+            }}
+          />
+        ) : loading ? (
+          <ChartCardSkeleton height={220} />
+        ) : isEmpty ? (
+          <StatusCard
+            icon={Inbox}
+            tone="graphite"
+            title="Nenhuma menção neste período"
+            description="Ninguém falou sobre este recorte no intervalo selecionado."
+            primaryAction={{ label: 'Ampliar para 90 dias', onClick: () => setDays(90) }}
+            secondaryAction={{ label: 'Limpar filtros', onClick: clearFilters }}
+          />
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={rows} margin={{ top: 24, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid
+                stroke="var(--gridline)"
+                strokeDasharray="0"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                axisLine={{ stroke: 'var(--baseline)' }}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+                width={40}
+              />
+              <Tooltip
+                content={(props) => <ChartTooltip {...props} />}
+                cursor={{ fill: 'var(--gridline)' }}
+              />
+              {entities.map((entity, index) => (
+                <Bar
+                  key={entity.id}
+                  dataKey={entity.id}
+                  name={entity.name}
+                  stackId="net"
+                  fill={candidateColor(entity.id)}
+                  isAnimationActive={false}
+                  radius={index === entities.length - 1 ? [6, 6, 0, 0] : undefined}
+                >
+                  <LabelList dataKey={entity.id} content={renderPercentLabel} />
+                  {index === entities.length - 1 && (
+                    <LabelList dataKey={entity.id} content={renderTotalLabel} />
+                  )}
+                </Bar>
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
     </section>
   )
 }

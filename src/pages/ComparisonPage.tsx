@@ -40,15 +40,30 @@ export function ComparisonPage() {
 
   const deps = [a, b, period.from, period.to, networks.join(',')]
 
-  const { data: summaryA, loading: loadingA } = useAsync(
+  const {
+    data: summaryA,
+    loading: loadingA,
+    error: errorA,
+    refetch: refetchA,
+  } = useAsync(
     () => (a ? getComparisonSummary(a, period, networks) : Promise.resolve(undefined)),
     deps,
   )
-  const { data: summaryB, loading: loadingB } = useAsync(
+  const {
+    data: summaryB,
+    loading: loadingB,
+    error: errorB,
+    refetch: refetchB,
+  } = useAsync(
     () => (b ? getComparisonSummary(b, period, networks) : Promise.resolve(undefined)),
     deps,
   )
-  const { data: volume = [], loading: volumeLoading } = useAsync(
+  const {
+    data: volume = [],
+    loading: volumeLoading,
+    error: volumeError,
+    refetch: refetchVolume,
+  } = useAsync(
     () => (a && b ? getVolumeOverTime([a, b], period, networks) : Promise.resolve([])),
     deps,
   )
@@ -95,8 +110,18 @@ export function ComparisonPage() {
       </div>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ComparisonCandidateCard summary={summaryA} loading={loadingA} />
-        <ComparisonCandidateCard summary={summaryB} loading={loadingB} />
+        <ComparisonCandidateCard
+          summary={summaryA}
+          loading={loadingA}
+          error={errorA}
+          refetch={refetchA}
+        />
+        <ComparisonCandidateCard
+          summary={summaryB}
+          loading={loadingB}
+          error={errorB}
+          refetch={refetchB}
+        />
       </section>
 
       <VolumeOverTimeChart
@@ -105,6 +130,9 @@ export function ComparisonPage() {
         )}
         points={volume}
         loading={volumeLoading}
+        error={volumeError}
+        refetch={refetchVolume}
+        period={period}
         title="Volume comparado ao longo do tempo"
         subtitle="Série diária · mesma escala para os dois candidatos"
       />

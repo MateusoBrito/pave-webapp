@@ -1,15 +1,23 @@
+import { AlertTriangle, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { TopicRankingRow } from '../../api/client'
+import { useFilters } from '../../context/FiltersContext'
 import { formatSignedPercent } from '../../lib/format'
+import { TableCardSkeleton } from '../ui/skeletons'
+import { StatusCard } from '../ui/StatusCard'
 
 interface Props {
   rows: TopicRankingRow[]
   loading: boolean
+  error?: Error
+  refetch?: () => void
 }
 
-export function TopicsRankingList({ rows, loading }: Props) {
+export function TopicsRankingList({ rows, loading, error, refetch }: Props) {
   const navigate = useNavigate()
+  const { clearFilters } = useFilters()
   const max = Math.max(...rows.map((r) => r.mentions), 1)
+  const isEmpty = !loading && !error && rows.length === 0
 
   return (
     <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
@@ -20,10 +28,30 @@ export function TopicsRankingList({ rows, loading }: Props) {
         Ordenado por volume · comparação com o período anterior
       </p>
 
-      {loading ? (
-        <div className="flex h-40 items-center justify-center text-sm text-[var(--text-muted)]">
-          Carregando…
-        </div>
+      {error ? (
+        <StatusCard
+          icon={AlertTriangle}
+          tone="coral"
+          title="Não foi possível carregar"
+          description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+          primaryAction={
+            refetch ? { label: 'Tentar novamente', onClick: refetch } : undefined
+          }
+          secondaryAction={{
+            label: `Copiar código do erro · ${error.message || '500'}`,
+            onClick: () => navigator.clipboard?.writeText(error.message || '500'),
+          }}
+        />
+      ) : loading ? (
+        <TableCardSkeleton rows={5} />
+      ) : isEmpty ? (
+        <StatusCard
+          icon={Search}
+          tone="purple"
+          title="Nenhum resultado para este filtro"
+          description="A combinação de candidato, rede e assunto não retornou tópicos."
+          primaryAction={{ label: 'Limpar filtros', onClick: clearFilters }}
+        />
       ) : (
         <ol className="flex flex-col gap-2.5">
           {rows.map((row, index) => (
@@ -31,7 +59,7 @@ export function TopicsRankingList({ rows, loading }: Props) {
               <button
                 type="button"
                 onClick={() => navigate(`/topicos/${row.topic.id}`)}
-                className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left hover:bg-black/5"
               >
                 <span className="w-4 shrink-0 text-xs text-[var(--text-muted)]">
                   {index + 1}

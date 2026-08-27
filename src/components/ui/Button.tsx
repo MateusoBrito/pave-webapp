@@ -12,7 +12,7 @@ const VARIANT_CLASS: Record<Variant, string> = {
   secondary:
     'bg-[var(--color-primary-light)] text-[var(--color-primary-dark)] hover:brightness-95',
   outline:
-    'bg-[var(--chart-surface)] border border-[var(--baseline)] text-[var(--text-primary)] hover:bg-black/5 dark:hover:bg-white/10',
+    'bg-[var(--chart-surface)] border border-[var(--baseline)] text-[var(--text-primary)] hover:bg-black/5',
 }
 
 export function Button({

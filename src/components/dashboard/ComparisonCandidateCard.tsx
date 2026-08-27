@@ -1,18 +1,54 @@
+import { AlertTriangle, Inbox } from 'lucide-react'
 import type { ComparisonCandidateSummary } from '../../api/client'
+import { useFilters } from '../../context/FiltersContext'
 import { candidateColor } from '../../lib/colors'
+import { Avatar } from '../ui/Avatar'
+import { KpiCardSkeleton } from '../ui/skeletons'
+import { StatusCard } from '../ui/StatusCard'
 import { SentimentBar } from './SentimentBar'
 
 interface Props {
   summary: ComparisonCandidateSummary | undefined
   loading: boolean
+  error?: Error
+  refetch?: () => void
 }
 
-export function ComparisonCandidateCard({ summary, loading }: Props) {
-  if (loading || !summary) {
+export function ComparisonCandidateCard({ summary, loading, error, refetch }: Props) {
+  const { setDays, clearFilters } = useFilters()
+
+  if (error) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5 text-sm text-[var(--text-muted)]">
-        Carregando…
-      </div>
+      <StatusCard
+        icon={AlertTriangle}
+        tone="coral"
+        title="Não foi possível carregar"
+        description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+        primaryAction={
+          refetch ? { label: 'Tentar novamente', onClick: refetch } : undefined
+        }
+        secondaryAction={{
+          label: `Copiar código do erro · ${error.message || '500'}`,
+          onClick: () => navigator.clipboard?.writeText(error.message || '500'),
+        }}
+      />
+    )
+  }
+
+  if (loading) {
+    return <KpiCardSkeleton />
+  }
+
+  if (!summary || summary.mentions === 0) {
+    return (
+      <StatusCard
+        icon={Inbox}
+        tone="graphite"
+        title="Nenhuma menção neste período"
+        description="Ninguém falou sobre este candidato no intervalo selecionado."
+        primaryAction={{ label: 'Ampliar para 90 dias', onClick: () => setDays(90) }}
+        secondaryAction={{ label: 'Limpar filtros', onClick: clearFilters }}
+      />
     )
   }
 
@@ -22,9 +58,11 @@ export function ComparisonCandidateCard({ summary, loading }: Props) {
   return (
     <div className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <div className="mb-4 flex items-center gap-3">
-        <span
-          className="h-10 w-10 shrink-0 rounded-full"
-          style={{ backgroundColor: color }}
+        <Avatar
+          name={summary.entity.name}
+          color={color}
+          size={40}
+          photoUrl={summary.entity.photoUrl}
         />
         <div>
           <p className="font-semibold text-[var(--text-primary)]">
@@ -36,12 +74,12 @@ export function ComparisonCandidateCard({ summary, loading }: Props) {
         </div>
       </div>
 
-      <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+      <p className="mb-1 text-[10px] font-medium tracking-wide text-[var(--text-muted)] uppercase">
         Sentimento agregado
       </p>
       <SentimentBar sentiment={summary.sentiment} className="mb-4" />
 
-      <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+      <p className="mb-2 text-[10px] font-medium tracking-wide text-[var(--text-muted)] uppercase">
         Top 3 tópicos
       </p>
       <ul className="flex flex-col gap-2">

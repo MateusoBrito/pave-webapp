@@ -58,6 +58,13 @@ function negativityBias(topicId: string): number {
   return TOPIC_NEGATIVITY_BIAS[topicId] ?? 0.4
 }
 
+/** Simula uma falha real de coleta — 3 dias sem nenhum dado, 10-12 dias atrás. Visível
+ * nos presets 30d/90d, não no 7d (o incidente já passou). Também é o motivo de
+ * "Cobertura da coleta" não mostrar sempre 100%. */
+function isInCollectionGap(daysAgo: number): boolean {
+  return daysAgo >= 10 && daysAgo <= 12
+}
+
 function sentimentShares(bias: number, seed: string) {
   const negative = bias * 0.55 + seededRandom(`${seed}-sn`) * 0.15
   const positive = (1 - bias) * 0.4 + seededRandom(`${seed}-sp`) * 0.15
@@ -104,7 +111,9 @@ function generateSeries(): TopicSeriesPoint[] {
         // pico simulado a meio do período para dar "surgimento, pico e decaimento"
         const distanceFromPeak = Math.abs(daysAgo - DAYS / 2)
         const peakBoost = Math.max(0, 1 - distanceFromPeak / (DAYS / 2)) * 0.8
-        const mentions = Math.max(0, Math.round(base * (0.4 + noise * 0.6 + peakBoost)))
+        const mentions = isInCollectionGap(daysAgo)
+          ? 0
+          : Math.max(0, Math.round(base * (0.4 + noise * 0.6 + peakBoost)))
 
         points.push({
           date,

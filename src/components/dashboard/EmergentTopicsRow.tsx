@@ -1,13 +1,19 @@
-import { Sparkles } from 'lucide-react'
+import { AlertTriangle, Inbox, Sparkles } from 'lucide-react'
 import type { EmergentTopic } from '../../types'
 import { IconTile } from '../ui/IconTile'
+import { Skeleton } from '../ui/Skeleton'
+import { StatusCard } from '../ui/StatusCard'
 
 interface Props {
   topics: EmergentTopic[]
   loading: boolean
+  error?: Error
+  refetch?: () => void
 }
 
-export function EmergentTopicsRow({ topics, loading }: Props) {
+export function EmergentTopicsRow({ topics, loading, error, refetch }: Props) {
+  const isEmpty = !loading && !error && topics.length === 0
+
   return (
     <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <h2 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -18,10 +24,33 @@ export function EmergentTopicsRow({ topics, loading }: Props) {
         próxima re-modelagem
       </p>
 
-      {loading ? (
-        <div className="flex h-16 items-center justify-center text-sm text-[var(--text-muted)]">
-          Carregando…
+      {error ? (
+        <StatusCard
+          icon={AlertTriangle}
+          tone="coral"
+          title="Não foi possível carregar"
+          description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+          primaryAction={
+            refetch ? { label: 'Tentar novamente', onClick: refetch } : undefined
+          }
+          secondaryAction={{
+            label: `Copiar código do erro · ${error.message || '500'}`,
+            onClick: () => navigator.clipboard?.writeText(error.message || '500'),
+          }}
+        />
+      ) : loading ? (
+        <div className="flex flex-wrap gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-48 rounded-xl" />
+          ))}
         </div>
+      ) : isEmpty ? (
+        <StatusCard
+          icon={Inbox}
+          tone="graphite"
+          title="Nenhum tópico emergente"
+          description="Nenhum documento recente ficou de fora do modelo vigente."
+        />
       ) : (
         <div className="flex flex-wrap gap-3">
           {topics.map((topic) => (

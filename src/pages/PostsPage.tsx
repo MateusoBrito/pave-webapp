@@ -11,10 +11,12 @@ export function PostsPage() {
     'Anúncios pagos veiculados pelos próprios candidatos, via Meta Ad Library',
   )
 
-  const { data: documents = [], loading } = useAsync(
-    () => getCandidatePosts(candidateIds),
-    [candidateIds.join(',')],
-  )
+  const {
+    data: documents = [],
+    loading,
+    error,
+    refetch,
+  } = useAsync(() => getCandidatePosts(candidateIds), [candidateIds.join(',')])
 
   return (
     <>
@@ -23,7 +25,12 @@ export function PostsPage() {
         isso fica fora das outras telas. O filtro de rede social não se aplica aqui: é
         sempre Meta Ads.
       </div>
-      <ExamplePostsList documents={documents} loading={loading} />
+      <ExamplePostsList
+        documents={documents}
+        loading={loading}
+        error={error}
+        refetch={refetch}
+      />
     </>
   )
 }

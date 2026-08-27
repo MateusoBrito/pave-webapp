@@ -1,3 +1,4 @@
+import { AlertTriangle, Inbox } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -9,22 +10,30 @@ import {
   YAxis,
 } from 'recharts'
 import type { SentimentSeriesPoint } from '../../api/client'
+import { useFilters } from '../../context/FiltersContext'
 import { sentimentColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
+import { ChartCardSkeleton } from '../ui/skeletons'
+import { StatusCard } from '../ui/StatusCard'
 import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
   points: SentimentSeriesPoint[]
   loading: boolean
+  error?: Error
+  refetch?: () => void
 }
 
-export function SentimentOverTimeChart({ points, loading }: Props) {
+export function SentimentOverTimeChart({ points, loading, error, refetch }: Props) {
+  const { setDays, clearFilters } = useFilters()
   const data = points.map((p) => ({
     date: p.date,
     Negativo: p.sentiment.negative,
     Neutro: p.sentiment.neutral,
     Positivo: p.sentiment.positive,
   }))
+  const isEmpty =
+    !loading && !error && data.every((d) => d.Negativo + d.Neutro + d.Positivo === 0)
 
   return (
     <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
@@ -35,10 +44,31 @@ export function SentimentOverTimeChart({ points, loading }: Props) {
         Barras empilhadas diárias · filtrável por rede social
       </p>
 
-      {loading || data.length === 0 ? (
-        <div className="flex h-56 items-center justify-center text-sm text-[var(--text-muted)]">
-          Carregando…
-        </div>
+      {error ? (
+        <StatusCard
+          icon={AlertTriangle}
+          tone="coral"
+          title="Não foi possível carregar"
+          description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+          primaryAction={
+            refetch ? { label: 'Tentar novamente', onClick: refetch } : undefined
+          }
+          secondaryAction={{
+            label: `Copiar código do erro · ${error.message || '500'}`,
+            onClick: () => navigator.clipboard?.writeText(error.message || '500'),
+          }}
+        />
+      ) : loading ? (
+        <ChartCardSkeleton height={240} />
+      ) : isEmpty ? (
+        <StatusCard
+          icon={Inbox}
+          tone="graphite"
+          title="Nenhuma menção neste período"
+          description="Ninguém falou sobre este tópico no intervalo selecionado."
+          primaryAction={{ label: 'Ampliar para 90 dias', onClick: () => setDays(90) }}
+          secondaryAction={{ label: 'Limpar filtros', onClick: clearFilters }}
+        />
       ) : (
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>

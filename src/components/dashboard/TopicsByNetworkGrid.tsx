@@ -1,12 +1,21 @@
+import { AlertTriangle, Search } from 'lucide-react'
 import { NETWORKS } from '../../types'
 import type { TopicNetworkMatrixRow } from '../../api/client'
+import { useFilters } from '../../context/FiltersContext'
+import { TableCardSkeleton } from '../ui/skeletons'
+import { StatusCard } from '../ui/StatusCard'
 
 interface Props {
   rows: TopicNetworkMatrixRow[]
   loading: boolean
+  error?: Error
+  refetch?: () => void
 }
 
-export function TopicsByNetworkGrid({ rows, loading }: Props) {
+export function TopicsByNetworkGrid({ rows, loading, error, refetch }: Props) {
+  const { clearFilters } = useFilters()
+  const isEmpty = !loading && !error && rows.length === 0
+
   return (
     <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
       <h2 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -16,10 +25,30 @@ export function TopicsByNetworkGrid({ rows, loading }: Props) {
         Intensidade = volume relativo · alinhamento entre modelos por rede
       </p>
 
-      {loading ? (
-        <div className="flex h-40 items-center justify-center text-sm text-[var(--text-muted)]">
-          Carregando…
-        </div>
+      {error ? (
+        <StatusCard
+          icon={AlertTriangle}
+          tone="coral"
+          title="Não foi possível carregar"
+          description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+          primaryAction={
+            refetch ? { label: 'Tentar novamente', onClick: refetch } : undefined
+          }
+          secondaryAction={{
+            label: `Copiar código do erro · ${error.message || '500'}`,
+            onClick: () => navigator.clipboard?.writeText(error.message || '500'),
+          }}
+        />
+      ) : loading ? (
+        <TableCardSkeleton rows={5} />
+      ) : isEmpty ? (
+        <StatusCard
+          icon={Search}
+          tone="purple"
+          title="Nenhum resultado para este filtro"
+          description="A combinação de candidato e assunto não retornou tópicos."
+          primaryAction={{ label: 'Limpar filtros', onClick: clearFilters }}
+        />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[420px] text-left text-sm">

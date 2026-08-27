@@ -3,4 +3,6 @@ export interface Entity {
   name: string
   role: string
   aliases: string[]
+  /** foto oficial, opcional — quando ausente o Avatar cai para iniciais */
+  photoUrl?: string
 }

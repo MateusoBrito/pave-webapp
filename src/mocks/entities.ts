@@ -11,11 +11,15 @@ export const ENTITIES: Entity[] = [
     name: 'Lula',
     role: 'Presidente, candidato à reeleição',
     aliases: ['Lula', 'Luiz Inácio', 'Lula da Silva', 'presidente Lula'],
+    // foto oficial (Palácio do Planalto / Ricardo Stuckert, CC BY 2.0) — ver public/avatars/CREDITS.md
+    photoUrl: '/avatars/lula.jpg',
   },
   {
     id: 'flavio-bolsonaro',
     name: 'Flávio Bolsonaro',
     role: 'Senador',
     aliases: ['Flávio Bolsonaro', 'senador Flávio'],
+    // foto oficial (Agência Senado, licença de atribuição) — ver public/avatars/CREDITS.md
+    photoUrl: '/avatars/flavio-bolsonaro.jpg',
   },
 ]

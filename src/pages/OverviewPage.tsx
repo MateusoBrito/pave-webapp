@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowUpRight,
   Calendar,
   MessageSquare,
@@ -22,6 +23,8 @@ import { ShareOfVoiceChart } from '../components/dashboard/ShareOfVoiceChart'
 import { TopTopicsTable } from '../components/dashboard/TopTopicsTable'
 import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
 import type { IconTone } from '../components/ui/IconTile'
+import { KpiCardSkeleton } from '../components/ui/skeletons'
+import { StatusCard } from '../components/ui/StatusCard'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
@@ -59,26 +62,36 @@ export function OverviewPage() {
 
   const deps = [candidateIds.join(','), period.from, period.to, networks.join(',')]
 
-  const { data: summary, loading: summaryLoading } = useAsync(
-    () => getOverviewSummary(candidateIds, period, networks),
-    deps,
-  )
-  const { data: volume = [], loading: volumeLoading } = useAsync(
-    () => getVolumeOverTime(candidateIds, period, networks),
-    deps,
-  )
-  const { data: byNetwork = [], loading: byNetworkLoading } = useAsync(
-    () => getMentionsByNetwork(candidateIds, period, networks),
-    deps,
-  )
-  const { data: shareOfVoice = [], loading: shareLoading } = useAsync(
-    () => getShareOfVoice(candidateIds, period, networks),
-    deps,
-  )
-  const { data: ranking = [], loading: rankingLoading } = useAsync(
-    () => getTopicRanking(candidateIds, period, networks, 10),
-    deps,
-  )
+  const {
+    data: summary,
+    loading: summaryLoading,
+    error: summaryError,
+    refetch: refetchSummary,
+  } = useAsync(() => getOverviewSummary(candidateIds, period, networks), deps)
+  const {
+    data: volume = [],
+    loading: volumeLoading,
+    error: volumeError,
+    refetch: refetchVolume,
+  } = useAsync(() => getVolumeOverTime(candidateIds, period, networks), deps)
+  const {
+    data: byNetwork = [],
+    loading: byNetworkLoading,
+    error: byNetworkError,
+    refetch: refetchByNetwork,
+  } = useAsync(() => getMentionsByNetwork(candidateIds, period, networks), deps)
+  const {
+    data: shareOfVoice = [],
+    loading: shareLoading,
+    error: shareError,
+    refetch: refetchShare,
+  } = useAsync(() => getShareOfVoice(candidateIds, period, networks), deps)
+  const {
+    data: ranking = [],
+    loading: rankingLoading,
+    error: rankingError,
+    refetch: refetchRanking,
+  } = useAsync(() => getTopicRanking(candidateIds, period, networks, 10), deps)
   const { data: highlights = [] } = useAsync(
     () => getHighlights(candidateIds, period, networks),
     deps,
@@ -93,53 +106,73 @@ export function OverviewPage() {
   return (
     <>
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiCard
-          icon={MessageSquare}
-          tone="purple"
-          label="Menções coletadas"
-          value={
-            summaryLoading || !summary ? '—' : formatCompactNumber(summary.totalMentions)
-          }
-          subtext={
-            summary
-              ? `${formatSignedPercent(summary.deltaPct)} vs. período anterior`
-              : undefined
-          }
-          subtextColor={
-            summary
-              ? summary.deltaPct >= 0
-                ? 'var(--tint-text-green)'
-                : 'var(--tint-text-coral)'
-              : undefined
-          }
-        />
-        <KpiCard
-          icon={Calendar}
-          tone="green"
-          label="Cobertura da coleta"
-          value={summary ? `${summary.daysCovered}/${summary.totalDays} dias` : '—'}
-          subtext={summary ? `${summary.totalNetworks} plataformas` : undefined}
-        />
-        <KpiCard
-          icon={Thermometer}
-          tone={SENTIMENT_TONE[predominant]}
-          label="Clima do debate"
-          value={summary ? SENTIMENT_LABEL[predominant] : '—'}
-          subtext={
-            sentiment
-              ? `${formatPercent((sentiment.negative / sentimentTotal) * 100)} negativo · ${formatPercent(
-                  (sentiment.neutral / sentimentTotal) * 100,
-                )} neutro · ${formatPercent((sentiment.positive / sentimentTotal) * 100)} positivo`
-              : undefined
-          }
-          subtextSecondary="Soma de Reddit e YouTube · anúncios da Meta não entram"
-        />
+        {summaryError ? (
+          <div className="sm:col-span-3">
+            <StatusCard
+              icon={AlertTriangle}
+              tone="coral"
+              title="Não foi possível carregar"
+              description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+              primaryAction={{ label: 'Tentar novamente', onClick: refetchSummary }}
+              secondaryAction={{
+                label: `Copiar código do erro · ${summaryError.message || '500'}`,
+                onClick: () =>
+                  navigator.clipboard?.writeText(summaryError.message || '500'),
+              }}
+            />
+          </div>
+        ) : summaryLoading || !summary ? (
+          <>
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+          </>
+        ) : (
+          <>
+            <KpiCard
+              icon={MessageSquare}
+              tone="purple"
+              label="Menções coletadas"
+              value={formatCompactNumber(summary.totalMentions)}
+              subtext={`${formatSignedPercent(summary.deltaPct)} vs. período anterior`}
+              subtextColor={
+                summary.deltaPct >= 0
+                  ? 'var(--tint-text-green)'
+                  : 'var(--tint-text-coral)'
+              }
+            />
+            <KpiCard
+              icon={Calendar}
+              tone="green"
+              label="Cobertura da coleta"
+              value={`${summary.daysCovered}/${summary.totalDays} dias`}
+              subtext={`${summary.totalNetworks} plataformas`}
+            />
+            <KpiCard
+              icon={Thermometer}
+              tone={SENTIMENT_TONE[predominant]}
+              label="Clima do debate"
+              value={SENTIMENT_LABEL[predominant]}
+              subtext={
+                sentiment
+                  ? `${formatPercent((sentiment.negative / sentimentTotal) * 100)} negativo · ${formatPercent(
+                      (sentiment.neutral / sentimentTotal) * 100,
+                    )} neutro · ${formatPercent((sentiment.positive / sentimentTotal) * 100)} positivo`
+                  : undefined
+              }
+              subtextSecondary="Soma de Reddit e YouTube · anúncios da Meta não entram"
+            />
+          </>
+        )}
       </section>
 
       <VolumeOverTimeChart
         entities={selectedEntities}
         points={volume}
         loading={volumeLoading}
+        error={volumeError}
+        refetch={refetchVolume}
+        period={period}
       />
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -147,15 +180,25 @@ export function OverviewPage() {
           entities={selectedEntities}
           data={byNetwork}
           loading={byNetworkLoading}
+          error={byNetworkError}
+          refetch={refetchByNetwork}
         />
         <ShareOfVoiceChart
           entities={selectedEntities}
           data={shareOfVoice}
           loading={shareLoading}
+          error={shareError}
+          refetch={refetchShare}
         />
       </section>
 
-      <TopTopicsTable rows={ranking} entities={entities} loading={rankingLoading} />
+      <TopTopicsTable
+        rows={ranking}
+        entities={entities}
+        loading={rankingLoading}
+        error={rankingError}
+        refetch={refetchRanking}
+      />
 
       {highlights.length > 0 && (
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">

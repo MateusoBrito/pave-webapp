@@ -241,7 +241,11 @@ export function getOverviewSummary(
   const organicNetworks = NETWORKS.filter((n) => n.id !== 'meta_ads').map((n) => n.id)
   const effectiveOrganic =
     networks.length > 0 ? networks.filter((n) => n !== 'meta_ads') : organicNetworks
-  const organicRows = filterSeries(period, { entityIds, networks: effectiveOrganic })
+  // mesma ressalva do getTopicRanking: filtro só-Meta-Ads não deve "voltar" a mostrar tudo
+  const organicRows =
+    networks.length > 0 && effectiveOrganic.length === 0
+      ? []
+      : filterSeries(period, { entityIds, networks: effectiveOrganic })
   const organicSentiment = sumSentiment(organicRows)
 
   const withData = rows.filter((p) => p.mentions > 0)
@@ -284,6 +288,11 @@ export function getTopicRanking(
 ): Promise<TopicRankingRow[]> {
   const effectiveNetworks =
     networks.length > 0 ? networks.filter((n) => n !== 'meta_ads') : ORGANIC_NETWORKS
+
+  // usuário filtrou só pra Meta Ads — não sobra rede orgânica nenhuma, e "sem restrição"
+  // (array vazio) tem outro significado em filterSeries ("todas"), então cortamos aqui.
+  if (networks.length > 0 && effectiveNetworks.length === 0) return delay([])
+
   const relevantTopics =
     entityIds.length > 0 ? TOPICS.filter((t) => entityIds.includes(t.entityId)) : TOPICS
 

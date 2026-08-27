@@ -1,3 +1,4 @@
+import { AlertTriangle, Inbox } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   Area,
@@ -12,10 +13,13 @@ import {
   YAxis,
 } from 'recharts'
 import type { Topic, TopicSeriesPoint } from '../../types'
-import { SegmentedControl } from '../ui/SegmentedControl'
+import { useFilters } from '../../context/FiltersContext'
 import { pivotByDate } from '../../lib/chartData'
 import { topicColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
+import { SegmentedControl } from '../ui/SegmentedControl'
+import { ChartCardSkeleton } from '../ui/skeletons'
+import { StatusCard } from '../ui/StatusCard'
 import { ChartTooltip } from './ChartTooltip'
 
 type Mode = 'stacked' | 'percent' | 'lines'
@@ -32,10 +36,13 @@ interface Props {
   topics: Topic[]
   series: TopicSeriesPoint[]
   loading: boolean
+  error?: Error
+  refetch?: () => void
 }
 
-export function TopicsStackedChart({ topics, series, loading }: Props) {
+export function TopicsStackedChart({ topics, series, loading, error, refetch }: Props) {
   const [mode, setMode] = useState<Mode>('stacked')
+  const { setDays, clearFilters } = useFilters()
 
   const orderedTopics = useMemo(
     () => [...topics].sort((a, b) => b.weight - a.weight),
@@ -50,6 +57,7 @@ export function TopicsStackedChart({ topics, series, loading }: Props) {
     ],
     [featured, rest],
   )
+  const isEmpty = !loading && !error && series.every((p) => p.mentions === 0)
 
   const data = useMemo(() => {
     const pivoted = pivotByDate(
@@ -91,10 +99,31 @@ export function TopicsStackedChart({ topics, series, loading }: Props) {
         <SegmentedControl options={MODE_OPTIONS} value={mode} onChange={setMode} />
       </div>
 
-      {loading || data.length === 0 ? (
-        <div className="flex h-72 items-center justify-center text-sm text-[var(--text-muted)]">
-          Carregando…
-        </div>
+      {error ? (
+        <StatusCard
+          icon={AlertTriangle}
+          tone="coral"
+          title="Não foi possível carregar"
+          description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
+          primaryAction={
+            refetch ? { label: 'Tentar novamente', onClick: refetch } : undefined
+          }
+          secondaryAction={{
+            label: `Copiar código do erro · ${error.message || '500'}`,
+            onClick: () => navigator.clipboard?.writeText(error.message || '500'),
+          }}
+        />
+      ) : loading ? (
+        <ChartCardSkeleton height={288} />
+      ) : isEmpty ? (
+        <StatusCard
+          icon={Inbox}
+          tone="graphite"
+          title="Nenhuma menção neste período"
+          description="Ninguém falou sobre este recorte no intervalo selecionado."
+          primaryAction={{ label: 'Ampliar para 90 dias', onClick: () => setDays(90) }}
+          secondaryAction={{ label: 'Limpar filtros', onClick: clearFilters }}
+        />
       ) : mode === 'lines' ? (
         <ResponsiveContainer width="100%" height={288}>
           <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
