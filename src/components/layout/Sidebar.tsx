@@ -34,16 +34,13 @@ export function Sidebar({ open, onClose }: Props) {
       >
         <div className="flex flex-col gap-8">
           <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary)]" />
-              <div>
-                <p className="text-lg font-bold tracking-tight text-[var(--sidebar-text)]">
-                  PAVE 2026
-                </p>
-                <p className="text-xs text-[var(--sidebar-text-muted)]">
-                  Panorama Virtual das Eleições
-                </p>
-              </div>
+            <div>
+              <p className="text-lg font-bold tracking-tight text-[var(--sidebar-text)]">
+                PAVE 2026
+              </p>
+              <p className="text-xs text-[var(--sidebar-text-muted)]">
+                Panorama Virtual das Eleições
+              </p>
             </div>
             <button
               type="button"

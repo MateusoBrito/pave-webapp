@@ -39,11 +39,6 @@ const SENTIMENT_TONE: Record<SentimentLabel, IconTone> = {
   neutral: 'graphite',
   positive: 'green',
 }
-const SENTIMENT_VALUE_COLOR: Record<SentimentLabel, string> = {
-  negative: 'var(--tint-text-coral)',
-  neutral: 'var(--text-primary)',
-  positive: 'var(--tint-text-green)',
-}
 const HIGHLIGHT_STYLE: Record<string, { icon: LucideIcon; tone: IconTone }> = {
   top_topic: { icon: TrendingUp, tone: 'purple' },
   network_growth: { icon: ArrowUpRight, tone: 'green' },
@@ -110,6 +105,13 @@ export function OverviewPage() {
               ? `${formatSignedPercent(summary.deltaPct)} vs. período anterior`
               : undefined
           }
+          subtextColor={
+            summary
+              ? summary.deltaPct >= 0
+                ? 'var(--tint-text-green)'
+                : 'var(--tint-text-coral)'
+              : undefined
+          }
         />
         <KpiCard
           icon={Calendar}
@@ -123,7 +125,6 @@ export function OverviewPage() {
           tone={SENTIMENT_TONE[predominant]}
           label="Clima do debate"
           value={summary ? SENTIMENT_LABEL[predominant] : '—'}
-          valueColor={summary ? SENTIMENT_VALUE_COLOR[predominant] : undefined}
           subtext={
             sentiment
               ? `${formatPercent((sentiment.negative / sentimentTotal) * 100)} negativo · ${formatPercent(

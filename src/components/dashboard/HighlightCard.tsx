@@ -32,11 +32,11 @@ interface Props {
 export function HighlightCard({ icon, tone, title, description }: Props) {
   return (
     <div
-      className="flex items-start gap-3 rounded-2xl p-4"
-      style={{ backgroundColor: CARD_BG[tone] }}
+      className="flex flex-1 items-center gap-[15px] rounded-2xl p-5"
+      style={{ backgroundColor: CARD_BG[tone], boxShadow: 'var(--card-shadow)' }}
     >
-      <IconTile icon={icon} tone={tone} size={40} surface="white" />
-      <div>
+      <IconTile icon={icon} tone={tone} size={44} surface="white" />
+      <div className="min-w-0">
         <p className="font-semibold" style={{ color: TITLE_COLOR[tone] }}>
           {title}
         </p>

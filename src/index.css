@@ -33,14 +33,17 @@
   --gridline: #e3e3e8;
   --baseline: #d3d3da;
 
-  /* fundos pastéis dos tiles de ícone — tons fixos, não computados em runtime */
-  --tint-primary: #efeafe;
+  /* fundos pastéis dos cards/tiles tintados — tons fixos, não computados em runtime */
+  --tint-primary: #f2eefe;
   --tint-green: #e3f6ea;
   --tint-coral: #fde7ea;
   --tint-amber: #fef3e0;
   --tint-pink: #fce7f3;
   --tint-blue: #e5efff;
   --tint-graphite: #e9e9ed;
+
+  /* sombra padrão dos cards tintados (KPI, destaque) — Figma */
+  --card-shadow: 0 4px 14px -2px rgba(23, 23, 41, 0.05);
 
   /* texto legível sobre o próprio tint (ex.: "Negativo" no card de clima do debate) */
   --tint-text-primary: #4b2fd6;

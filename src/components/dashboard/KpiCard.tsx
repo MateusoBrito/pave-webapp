@@ -11,12 +11,22 @@ const CARD_BG: Record<IconTone, string> = {
   graphite: 'var(--tint-graphite)',
 }
 
+const TEXT_COLOR: Record<IconTone, string> = {
+  purple: 'var(--tint-text-primary)',
+  green: 'var(--tint-text-green)',
+  coral: 'var(--tint-text-coral)',
+  amber: 'var(--tint-text-amber)',
+  blue: 'var(--tint-text-blue)',
+  pink: 'var(--color-pink)',
+  graphite: 'var(--text-primary)',
+}
+
 interface Props {
   label: string
   value: string
-  /** cor do valor — só quando o valor em si é a palavra de status (ex. "Negativo") */
-  valueColor?: string
   subtext?: string
+  /** cor da 1ª linha de subtexto — por padrão usa a cor do tema (ex.: delta positivo/negativo) */
+  subtextColor?: string
   subtextSecondary?: string
   icon: LucideIcon
   tone: IconTone
@@ -25,30 +35,37 @@ interface Props {
 export function KpiCard({
   label,
   value,
-  valueColor,
   subtext,
+  subtextColor,
   subtextSecondary,
   icon,
   tone,
 }: Props) {
   return (
-    <div className="rounded-2xl p-4" style={{ backgroundColor: CARD_BG[tone] }}>
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <div
+      className="flex flex-1 items-center gap-[15px] rounded-2xl p-5"
+      style={{ backgroundColor: CARD_BG[tone], boxShadow: 'var(--card-shadow)' }}
+    >
+      <IconTile icon={icon} tone={tone} size={44} surface="white" />
+      <div className="min-w-0">
         <p className="text-[11px] font-medium tracking-wide text-[var(--text-secondary)] uppercase">
           {label}
         </p>
-        <IconTile icon={icon} tone={tone} size={40} surface="white" />
+        <p className="text-2xl font-bold" style={{ color: TEXT_COLOR[tone] }}>
+          {value}
+        </p>
+        {subtext && (
+          <p
+            className="mt-0.5 text-xs font-medium"
+            style={{ color: subtextColor ?? TEXT_COLOR[tone] }}
+          >
+            {subtext}
+          </p>
+        )}
+        {subtextSecondary && (
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">{subtextSecondary}</p>
+        )}
       </div>
-      <p
-        className="text-3xl font-semibold"
-        style={{ color: valueColor ?? 'var(--text-primary)' }}
-      >
-        {value}
-      </p>
-      {subtext && <p className="mt-1 text-sm text-[var(--text-secondary)]">{subtext}</p>}
-      {subtextSecondary && (
-        <p className="mt-0.5 text-xs text-[var(--text-muted)]">{subtextSecondary}</p>
-      )}
     </div>
   )
 }
