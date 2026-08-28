@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -30,12 +31,24 @@ export function Avatar({
   icon: Icon,
   photoUrl,
 }: Props) {
+  const [photoFailed, setPhotoFailed] = useState(false)
+
+  // troca de conta/entidade pode trazer uma nova foto — dá outra chance antes de
+  // decidir que ela falhou
+  useEffect(() => {
+    setPhotoFailed(false)
+  }, [photoUrl])
+
+  const showPhoto = Boolean(photoUrl) && !muted && !photoFailed
+
   return (
     <div className="relative inline-flex shrink-0" style={{ width: size, height: size }}>
-      {photoUrl && !muted ? (
+      {showPhoto ? (
         <img
           src={photoUrl}
           alt={name}
+          referrerPolicy="no-referrer"
+          onError={() => setPhotoFailed(true)}
           className="h-full w-full rounded-full object-cover"
           style={{ boxShadow: `0 0 0 2px ${color}` }}
         />
