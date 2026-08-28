@@ -1,4 +1,5 @@
-import { Download, Menu } from 'lucide-react'
+import { Clock, Download, Menu } from 'lucide-react'
+import { useMatch } from 'react-router-dom'
 import { getCollectionStatus } from '../../api/client'
 import { useCurrentPageHeader } from '../../context/PageHeaderContext'
 import { useAsync } from '../../hooks'
@@ -13,6 +14,7 @@ interface Props {
 export function TopBar({ onMenuClick }: Props) {
   const { title, subtitle } = useCurrentPageHeader()
   const { data: status } = useAsync(() => getCollectionStatus(), [])
+  const isMethodology = useMatch('/metodologia')
 
   return (
     <header className="flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6">
@@ -34,17 +36,36 @@ export function TopBar({ onMenuClick }: Props) {
       </div>
 
       <div className="flex items-center gap-3">
-        {status && (
-          <span className="hidden items-center gap-1.5 rounded-full border border-[var(--baseline)] px-3 py-1 text-xs text-[var(--text-secondary)] sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-green)]" />
-            Última coleta: {formatFullDate(status.lastCollectionDate)} (D-
-            {status.daysBehind})
-          </span>
+        {isMethodology ? (
+          <>
+            <span className="hidden items-center gap-1.5 rounded-full border border-[var(--baseline)] px-3 py-1 text-xs text-[var(--text-secondary)] sm:flex">
+              <Clock size={13} className="shrink-0 text-[var(--text-muted)]" />
+              Modelo de tópicos v7 · re-modelado em 01/07/2026
+            </span>
+            <Button
+              variant="primary"
+              disabled
+              title="Exportação em PDF ainda não existe"
+            >
+              <Download size={16} />
+              Baixar em PDF
+            </Button>
+          </>
+        ) : (
+          <>
+            {status && (
+              <span className="hidden items-center gap-1.5 rounded-full border border-[var(--baseline)] px-3 py-1 text-xs text-[var(--text-secondary)] sm:flex">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-green)]" />
+                Última coleta: {formatFullDate(status.lastCollectionDate)} (D-
+                {status.daysBehind})
+              </span>
+            )}
+            <Button variant="primary">
+              <Download size={16} />
+              Exportar
+            </Button>
+          </>
         )}
-        <Button variant="primary">
-          <Download size={16} />
-          Exportar
-        </Button>
       </div>
     </header>
   )

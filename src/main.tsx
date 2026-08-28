@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.tsx'
 import { RedirectIfAuthed } from './components/auth/RedirectIfAuthed'
 import { RequireAuth } from './components/auth/RequireAuth'
+import { ScrollToTop } from './components/layout/ScrollToTop'
 import { AuthProvider } from './context/AuthContext'
 import { ComparisonPage } from './pages/ComparisonPage'
 import { LoginPage } from './pages/LoginPage'
@@ -19,6 +20,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
+        <ScrollToTop />
         <Routes>
           <Route
             path="/login"

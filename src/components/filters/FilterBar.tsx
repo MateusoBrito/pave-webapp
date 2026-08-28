@@ -12,6 +12,10 @@ import { PeriodFilterCard } from './PeriodFilterCard'
 export function FilterBar() {
   const isTopicDetail = useMatch('/topicos/:topicId')
   const isComparison = useMatch('/comparativo')
+  const isMethodology = useMatch('/metodologia')
+
+  // metodologia é conteúdo estático — não filtra por candidato, período ou rede
+  if (isMethodology) return null
 
   if (isTopicDetail) {
     return (
