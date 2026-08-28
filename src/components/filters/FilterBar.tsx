@@ -10,6 +10,7 @@ import { PeriodFilterCard } from './PeriodFilterCard'
  * telas no Figma).
  */
 export function FilterBar() {
+  const isTopics = useMatch('/topicos')
   const isTopicDetail = useMatch('/topicos/:topicId')
   const isComparison = useMatch('/comparativo')
   const isMethodology = useMatch('/metodologia')
@@ -25,6 +26,24 @@ export function FilterBar() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <CandidateAvatarFilter />
           <PeriodFilterCard />
+        </div>
+      </div>
+    )
+  }
+
+  // "O que os usuários comentam?" é sempre uma rede por vez (Reddit ou YouTube) — Meta
+  // Ads não entra: é conteúdo do candidato, não do público (ver PostsPage)
+  if (isTopics) {
+    return (
+      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <CandidateAvatarFilter />
+          <PeriodFilterCard />
+          <NetworkChipFilter
+            singleSelect
+            title="Qual plataforma?"
+            options={['youtube', 'reddit']}
+          />
         </div>
       </div>
     )

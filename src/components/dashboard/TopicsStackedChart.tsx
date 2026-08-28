@@ -1,4 +1,4 @@
-import { AlertTriangle, Inbox } from 'lucide-react'
+import { AlertTriangle, Inbox, TrendingUp } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   Area,
@@ -12,11 +12,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { Topic, TopicSeriesPoint } from '../../types'
+import type { Entity, Topic, TopicSeriesPoint } from '../../types'
 import { useFilters } from '../../context/FiltersContext'
 import { pivotByDate } from '../../lib/chartData'
 import { topicColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
+import { shortName } from '../../lib/format'
+import { IconTile } from '../ui/IconTile'
 import { SegmentedControl } from '../ui/SegmentedControl'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
@@ -34,13 +36,21 @@ const FEATURED_COUNT = 4
 
 interface Props {
   topics: Topic[]
+  entities: Entity[]
   series: TopicSeriesPoint[]
   loading: boolean
   error?: Error
   refetch?: () => void
 }
 
-export function TopicsStackedChart({ topics, series, loading, error, refetch }: Props) {
+export function TopicsStackedChart({
+  topics,
+  entities,
+  series,
+  loading,
+  error,
+  refetch,
+}: Props) {
   const [mode, setMode] = useState<Mode>('stacked')
   const { setDays, clearFilters } = useFilters()
 
@@ -57,6 +67,10 @@ export function TopicsStackedChart({ topics, series, loading, error, refetch }: 
     ],
     [featured, rest],
   )
+  const seriesName = (topic: Topic) => {
+    const entity = entities.find((e) => e.id === topic.entityId)
+    return entity ? `${topic.label} · ${shortName(entity.name)}` : topic.label
+  }
   const isEmpty = !loading && !error && series.every((p) => p.mentions === 0)
 
   const data = useMemo(() => {
@@ -85,15 +99,18 @@ export function TopicsStackedChart({ topics, series, loading, error, refetch }: 
   }, [series, featured, rest, mode, chartSeries])
 
   return (
-    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+    <section
+      className="flex flex-col gap-[15px] rounded-2xl bg-[var(--chart-surface)] p-[22px]"
+      style={{ boxShadow: 'var(--card-shadow)' }}
+    >
+      <div className="flex flex-wrap items-center gap-[13px]">
+        <IconTile icon={TrendingUp} tone="purple" size={34} />
+        <div className="flex-1">
+          <h2 className="text-[15px] font-bold text-[var(--text-primary)]">
             Evolução dos tópicos no tempo
           </h2>
-          <p className="text-xs text-[var(--text-muted)]">
-            Participação diária de cada tópico · re-modelagem mensal marcada na linha do
-            tempo
+          <p className="text-[11px] text-[var(--text-muted)]">
+            Menções por dia em cada tópico
           </p>
         </div>
         <SegmentedControl options={MODE_OPTIONS} value={mode} onChange={setMode} />
@@ -152,7 +169,7 @@ export function TopicsStackedChart({ topics, series, loading, error, refetch }: 
               <Line
                 key={topic.id}
                 dataKey={topic.id}
-                name={topic.label}
+                name={topic.id === 'outros' ? topic.label : seriesName(topic)}
                 stroke={topicColor(index)}
                 strokeWidth={2}
                 dot={false}
@@ -190,7 +207,7 @@ export function TopicsStackedChart({ topics, series, loading, error, refetch }: 
               <Area
                 key={topic.id}
                 dataKey={topic.id}
-                name={topic.label}
+                name={topic.id === 'outros' ? topic.label : seriesName(topic)}
                 stackId="topics"
                 stroke={topicColor(index)}
                 strokeWidth={2}

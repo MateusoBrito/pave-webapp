@@ -23,14 +23,19 @@ interface Props {
   title?: string
   /** texto de apoio abaixo dos chips — ex. explicando a seleção única */
   note?: string
+  /** restringe quais chips aparecem — ex. só youtube/reddit em "O que os usuários
+   * comentam?", onde Meta Ads (conteúdo do candidato, não do público) não se aplica */
+  options?: Network[]
 }
 
 export function NetworkChipFilter({
   singleSelect = false,
   title = 'Onde está acontecendo?',
   note,
+  options = NETWORKS.map((n) => n.id),
 }: Props) {
   const { networks, setNetworks } = useFilters()
+  const visibleNetworks = NETWORKS.filter((n) => options.includes(n.id))
 
   function toggle(id: Network) {
     if (singleSelect) {
@@ -38,17 +43,17 @@ export function NetworkChipFilter({
       return
     }
     const allSelected = networks.length === 0
-    const base = allSelected ? NETWORKS.map((n) => n.id) : networks
+    const base = allSelected ? visibleNetworks.map((n) => n.id) : networks
     const isSelected = allSelected || networks.includes(id)
     const next = isSelected ? base.filter((v) => v !== id) : [...base, id]
-    setNetworks(next.length === NETWORKS.length ? [] : next)
+    setNetworks(next.length === visibleNetworks.length ? [] : next)
   }
 
   return (
     <div className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-4">
       <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{title}</p>
       <div className="flex flex-wrap gap-2">
-        {NETWORKS.map((network) => {
+        {visibleNetworks.map((network) => {
           const selected = singleSelect
             ? networks.length > 0
               ? networks.includes(network.id)

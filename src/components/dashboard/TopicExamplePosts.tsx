@@ -14,7 +14,7 @@ import type { TopicDocument } from '../../types'
 import { useFilters } from '../../context/FiltersContext'
 import { networkColor, sentimentColor } from '../../lib/colors'
 import { FOCUS_RING } from '../ui/focusRing'
-import { IconTile } from '../ui/IconTile'
+import { IconTile, type IconTone } from '../ui/IconTile'
 import { TableCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
 
@@ -41,12 +41,26 @@ interface Props {
   loading: boolean
   error?: Error
   refetch?: () => void
+  title?: string
+  subtitle?: string
+  icon?: LucideIcon
+  tone?: IconTone
 }
 
 /** "Exemplos do que foi dito" do drill-down de tópico — carrossel paginado de 3 em 3,
  * com borda colorida por sentimento (distinto do ExamplePostsList em lista, usado em
- * PostsPage). */
-export function TopicExamplePosts({ documents, loading, error, refetch }: Props) {
+ * PostsPage). Título/subtítulo/ícone são configuráveis: "O que os usuários comentam?"
+ * reaproveita este mesmo componente por rede (Reddit/YouTube), só trocando o texto. */
+export function TopicExamplePosts({
+  documents,
+  loading,
+  error,
+  refetch,
+  title = 'Exemplos do que foi dito',
+  subtitle = 'Publicações e comentários do público · autores anonimizados conforme a política de retenção (LGPD)',
+  icon = MessageSquareQuote,
+  tone = 'amber',
+}: Props) {
   const { clearFilters } = useFilters()
   const [page, setPage] = useState(0)
   const isEmpty = !loading && !error && documents.length === 0
@@ -65,15 +79,10 @@ export function TopicExamplePosts({ documents, loading, error, refetch }: Props)
       style={{ boxShadow: 'var(--card-shadow)' }}
     >
       <div className="flex flex-wrap items-center gap-[13px]">
-        <IconTile icon={MessageSquareQuote} tone="amber" size={34} />
+        <IconTile icon={icon} tone={tone} size={34} />
         <div className="flex-1">
-          <h2 className="text-[15px] font-bold text-[var(--text-primary)]">
-            Exemplos do que foi dito
-          </h2>
-          <p className="text-[11px] text-[var(--text-muted)]">
-            Publicações e comentários do público · autores anonimizados conforme a
-            política de retenção (LGPD)
-          </p>
+          <h2 className="text-[15px] font-bold text-[var(--text-primary)]">{title}</h2>
+          <p className="text-[11px] text-[var(--text-muted)]">{subtitle}</p>
         </div>
         {!loading && !error && !isEmpty && (
           <div className="flex items-center gap-2">

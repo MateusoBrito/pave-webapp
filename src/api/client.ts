@@ -1,6 +1,5 @@
 import { NETWORKS } from '../types'
 import type {
-  EmergentTopic,
   Entity,
   Network,
   SentimentLabel,
@@ -9,6 +8,8 @@ import type {
   TopicSentiment,
   TopicSeriesPoint,
 } from '../types'
+import { shortName } from '../lib/format'
+import { seededRandom } from '../lib/random'
 import {
   EMERGENT_TOPICS,
   ENTITIES,
@@ -340,38 +341,6 @@ export function getTopicRanking(
     .sort((a, b) => b.mentions - a.mentions)
 
   return delay(limit ? result.slice(0, limit) : result)
-}
-
-export interface TopicNetworkMatrixRow {
-  topic: Topic
-  /** intensidade relativa 0-1, normalizada dentro da própria linha */
-  byNetwork: Record<Network, number>
-}
-
-/** GET /topics/by-network — matriz p/ o heatmap "Tópicos por rede social". */
-export function getTopicsByNetworkMatrix(
-  entityIds: string[],
-  period: PeriodFilter,
-): Promise<TopicNetworkMatrixRow[]> {
-  const rows = filterSeries(period, { entityIds })
-
-  const result: TopicNetworkMatrixRow[] = TOPICS.map((topic) => {
-    const topicRows = rows.filter((p) => p.topicId === topic.id)
-    const raw = new Map<Network, number>(NETWORKS.map((n) => [n.id, 0]))
-    for (const p of topicRows) raw.set(p.network, (raw.get(p.network) ?? 0) + p.mentions)
-    const max = Math.max(...raw.values(), 1)
-    const byNetwork = Object.fromEntries(
-      NETWORKS.map((n) => [n.id, (raw.get(n.id) ?? 0) / max]),
-    ) as Record<Network, number>
-    return { topic, byNetwork }
-  }).filter((row) => Object.values(row.byNetwork).some((v) => v > 0))
-
-  return delay(result)
-}
-
-/** GET /topics/emergent — documentos com baixa afinidade a qualquer tópico vigente. */
-export function getEmergentTopics(): Promise<EmergentTopic[]> {
-  return delay(EMERGENT_TOPICS)
 }
 
 export interface TopicDetail {
@@ -762,5 +731,129 @@ export function getAdCandidateBreakdown(
         b.investmentMaxBRL -
         (a.investmentMinBRL + a.investmentMaxBRL),
     ),
+  )
+}
+
+/** Subreddits brasileiros cobertos pela coleta — não são candidatos, então não têm
+ * como derivar dos dados de entidade; a lista mora aqui, junto do resto do domínio de
+ * consulta do Reddit. */
+const REDDIT_SUBREDDITS = [
+  'r/brasil',
+  'r/politica',
+  'r/bolsonaro',
+  'r/conversas',
+  'r/brasilivre',
+  'r/desabafos',
+  'r/noticias',
+  'r/enem',
+]
+
+export interface SubdivisionColumn {
+  key: string
+  label: string
+}
+
+export interface SubdivisionRow {
+  topic: Topic
+  values: Record<string, number>
+}
+
+export interface SubdivisionMatrix {
+  columns: SubdivisionColumn[]
+  rows: SubdivisionRow[]
+  maxValue: number
+  unitLabel: string
+}
+
+/**
+ * GET /topics/by-subdivision — "Tópicos por subreddit"/"Tópicos por canal". No
+ * YouTube cada tópico já pertence a um candidato só, então a coluna dele é exata (o
+ * canal oficial do próprio candidato). No Reddit não há essa correspondência — os
+ * subreddits não são "donos" de ninguém — então o total real de menções do tópico
+ * (mesmo cálculo do ranking) é repartido entre os 8 subreddits por um peso
+ * determinístico, só pra visualizar onde a conversa tende a se concentrar; não é uma
+ * contagem exata por subreddit (isso exigiria a Fase 3 com dado bruto por subreddit).
+ */
+export async function getTopicsBySubdivision(
+  entityIds: string[],
+  period: PeriodFilter,
+  network: 'reddit' | 'youtube',
+): Promise<SubdivisionMatrix> {
+  const ranking = await getTopicRanking(entityIds, period, [network])
+
+  if (network === 'youtube') {
+    const allEntities = [...ENTITIES, ...getCustomEntities()]
+    const relevant =
+      entityIds.length > 0
+        ? allEntities.filter((e) => entityIds.includes(e.id))
+        : allEntities
+    const columns = relevant.map((e) => ({
+      key: e.id,
+      label: `Canal do ${shortName(e.name)}`,
+    }))
+    const rows = ranking.map((r) => ({
+      topic: r.topic,
+      values: Object.fromEntries(
+        columns.map((c) => [c.key, c.key === r.topic.entityId ? r.mentions : 0]),
+      ),
+    }))
+    const maxValue = Math.max(1, ...rows.flatMap((r) => Object.values(r.values)))
+    return { columns, rows, maxValue, unitLabel: 'comentários' }
+  }
+
+  const columns = REDDIT_SUBREDDITS.map((s) => ({ key: s, label: s }))
+  const rows = ranking.map((r) => {
+    const weights = columns.map((c) => 0.15 + seededRandom(`${r.topic.id}-${c.key}`))
+    const weightSum = weights.reduce((a, b) => a + b, 0)
+    const values = Object.fromEntries(
+      columns.map((c, i) => [c.key, Math.round((weights[i] / weightSum) * r.mentions)]),
+    )
+    return { topic: r.topic, values }
+  })
+  const maxValue = Math.max(1, ...rows.flatMap((r) => Object.values(r.values)))
+  return { columns, rows, maxValue, unitLabel: 'comentários' }
+}
+
+export interface CandidateSentimentSummary {
+  entity: Entity
+  sentiment: TopicSentiment
+}
+
+/** GET /candidates/sentiment — sentimento agregado por candidato numa rede orgânica só
+ * (Reddit ou YouTube), pro card "Sentimento por candidato". */
+export function getCandidateSentimentBreakdown(
+  entityIds: string[],
+  period: PeriodFilter,
+  networks: Network[],
+): Promise<CandidateSentimentSummary[]> {
+  const allEntities = [...ENTITIES, ...getCustomEntities()]
+  const relevant =
+    entityIds.length > 0
+      ? allEntities.filter((e) => entityIds.includes(e.id))
+      : allEntities
+
+  return delay(
+    relevant.map((entity) => ({
+      entity,
+      sentiment: sumSentiment(filterSeries(period, { entityIds: [entity.id], networks })),
+    })),
+  )
+}
+
+/** GET /networks/{network}/documents — exemplos de publicações/comentários cruzando
+ * todos os tópicos numa rede só, pro carrossel de "O que os usuários comentam?" (o
+ * drill-down de tópico usa getTopicDocuments, que é escopado a um tópico). */
+export function getNetworkDocuments(
+  entityIds: string[],
+  period: PeriodFilter,
+  network: Network,
+): Promise<TopicDocument[]> {
+  return delay(
+    MOCK_DOCUMENTS.filter(
+      (d) =>
+        d.network === network &&
+        (entityIds.length === 0 || entityIds.includes(d.entityId)) &&
+        inPeriod(d.publishedAt.slice(0, 10), period),
+    ).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)),
   )
 }

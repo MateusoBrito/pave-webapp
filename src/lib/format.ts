@@ -23,3 +23,11 @@ export function formatBRLCompact(n: number): string {
 export function formatBRLRange(min: number, max: number): string {
   return `${formatBRLCompact(min)} – ${formatBRLCompact(max).replace('R$ ', '')}`
 }
+
+/** "Flávio Bolsonaro" -> "Flávio B." — usado pra desambiguar tópicos entre candidatos
+ * em listas compactas (ranking, heatmaps) sem estourar a largura da coluna. */
+export function shortName(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0]
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`
+}

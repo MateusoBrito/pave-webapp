@@ -6,24 +6,13 @@ import type {
   TopicSentiment,
   TopicSeriesPoint,
 } from '../types'
+import { seededRandom } from '../lib/random'
 import { ENTITIES } from './entities'
 import { TOPICS } from './topics'
 
 // 180 dias — cobre com folga até o preset de 90d + seu período anterior de mesma duração
 // (senão "variação vs. período anterior" sempre cairia fora do range gerado e daria 0%).
 const DAYS = 180
-
-/** Deterministic pseudo-random in [0, 1), seeded from a string — keeps mock data stable
- * across re-renders/HMR instead of reshuffling on every reload. */
-function seededRandom(seed: string): number {
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash << 5) - hash + seed.charCodeAt(i)
-    hash |= 0
-  }
-  const x = Math.sin(hash) * 10000
-  return x - Math.floor(x)
-}
 
 function isoDate(daysAgo: number): string {
   const d = new Date()

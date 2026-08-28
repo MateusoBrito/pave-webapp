@@ -15,7 +15,7 @@ import {
 import type { Entity, Topic, TopicDocument } from '../../types'
 import { useFilters } from '../../context/FiltersContext'
 import { candidateColor } from '../../lib/colors'
-import { formatBRLRange } from '../../lib/format'
+import { formatBRLRange, shortName } from '../../lib/format'
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
 import { FOCUS_RING } from '../ui/focusRing'
@@ -28,12 +28,6 @@ const PAGE_SIZE = 3
 const PLATFORM_LABEL: Record<'facebook' | 'instagram', string> = {
   facebook: 'Facebook',
   instagram: 'Instagram',
-}
-
-function shortName(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0]
-  return `${parts[0]} ${parts[parts.length - 1][0]}.`
 }
 
 function formatImpressions(n: number): string {
