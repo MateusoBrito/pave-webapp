@@ -125,6 +125,8 @@ export function ComparisonPage() {
           loading={loadingA}
           error={errorA}
           refetch={refetchA}
+          network={effectiveNetworks[0]}
+          period={period}
         />
         <ComparisonPanel
           tag="B"
@@ -133,6 +135,8 @@ export function ComparisonPage() {
           loading={loadingB}
           error={errorB}
           refetch={refetchB}
+          network={effectiveNetworks[0]}
+          period={period}
         />
       </section>
 

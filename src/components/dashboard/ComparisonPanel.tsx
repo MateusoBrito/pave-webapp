@@ -1,12 +1,14 @@
+import { useState } from 'react'
 import { AlertTriangle, ChevronRight, Inbox } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import type { ComparisonCandidateSummary } from '../../api/client'
+import type { ComparisonCandidateSummary, PeriodFilter } from '../../api/client'
 import { useFilters } from '../../context/FiltersContext'
 import { candidateColor } from '../../lib/colors'
+import type { Network } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { FOCUS_RING } from '../ui/focusRing'
 import { KpiCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
+import { CandidateTopicsModal } from './CandidateTopicsModal'
 import { SentimentBar } from './SentimentBar'
 
 interface Props {
@@ -17,6 +19,8 @@ interface Props {
   loading: boolean
   error?: Error
   refetch?: () => void
+  network: Network
+  period: PeriodFilter
 }
 
 /** Painel espelhado do Comparativo — um por candidato (A à esquerda, B à direita). */
@@ -27,9 +31,11 @@ export function ComparisonPanel({
   loading,
   error,
   refetch,
+  network,
+  period,
 }: Props) {
-  const navigate = useNavigate()
-  const { setDays, clearFilters, setCandidateIds } = useFilters()
+  const { setDays, clearFilters } = useFilters()
+  const [topicsModalOpen, setTopicsModalOpen] = useState(false)
 
   if (error) {
     return (
@@ -76,11 +82,6 @@ export function ComparisonPanel({
 
   const color = candidateColor(summary.entity.id)
   const maxTopic = Math.max(...summary.topTopics.map((t) => t.mentions), 1)
-
-  function handleSeeAllTopics() {
-    setCandidateIds([summary!.entity.id])
-    navigate('/topicos')
-  }
 
   return (
     <div
@@ -170,13 +171,21 @@ export function ComparisonPanel({
         )}
         <button
           type="button"
-          onClick={handleSeeAllTopics}
+          onClick={() => setTopicsModalOpen(true)}
           className={`flex items-center justify-center gap-1.5 rounded-[9px] bg-[var(--tint-primary)] px-3 py-2.5 text-[11px] font-semibold text-[var(--color-primary-dark)] transition-colors hover:brightness-95 ${FOCUS_RING}`}
         >
           Ver todos os tópicos deste candidato
           <ChevronRight size={12} strokeWidth={2.5} />
         </button>
       </div>
+
+      <CandidateTopicsModal
+        open={topicsModalOpen}
+        onClose={() => setTopicsModalOpen(false)}
+        entityId={summary.entity.id}
+        network={network}
+        period={period}
+      />
     </div>
   )
 }

@@ -31,3 +31,14 @@ export function shortName(name: string): string {
   if (parts.length === 1) return parts[0]
   return `${parts[0]} ${parts[parts.length - 1][0]}.`
 }
+
+/** "Visão Geral" -> "visao-geral" — usado em nome de arquivo e domínio sintético. */
+export function slugify(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}

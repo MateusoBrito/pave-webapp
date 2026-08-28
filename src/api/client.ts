@@ -932,3 +932,94 @@ export function getPublicationComments(
     comments: sorted.slice(offset, offset + limit),
   })
 }
+
+export interface CandidateTopicListRow extends TopicRankingRow {
+  /** share sobre o total de menções deste candidato nesta rede — não muda com o
+   * filtro/busca, é sempre relativo à lista inteira */
+  sharePct: number
+}
+
+export interface CandidateTopicListQuery {
+  entityId: string
+  network: Network
+  period: PeriodFilter
+  search?: string
+  filter?: 'all' | 'emerging' | 'declining'
+  sort?: 'mentions' | 'alpha'
+  limit?: number
+}
+
+export interface CandidateTopicListResult {
+  entity: Entity | undefined
+  network: Network
+  /** total real de tópicos do candidato nesta rede, sem filtro/busca — pro cabeçalho */
+  totalTopics: number
+  totalMentions: number
+  /** linhas já filtradas/ordenadas/paginadas, prontas pra tabela */
+  rows: CandidateTopicListRow[]
+  /** quantas linhas batem com o filtro/busca atual, antes da paginação */
+  totalFiltered: number
+  /** soma de menções das linhas que ainda não apareceram (pro rodapé "os N restantes
+   * somam X menções") */
+  remainingMentions: number
+}
+
+/**
+ * GET /candidates/{id}/topics — "Todos os tópicos do candidato" (modal). Reaproveita
+ * getTopicRanking (já traz menções/variação/sentimento por tópico) e só adiciona
+ * share, busca, filtro e paginação por cima.
+ */
+export async function getCandidateTopicList(
+  query: CandidateTopicListQuery,
+): Promise<CandidateTopicListResult> {
+  const {
+    entityId,
+    network,
+    period,
+    search = '',
+    filter = 'all',
+    sort = 'mentions',
+    limit,
+  } = query
+
+  const allRows = await getTopicRanking([entityId], period, [network])
+  const totalMentions = allRows.reduce((sum, r) => sum + r.mentions, 0)
+  const withShare: CandidateTopicListRow[] = allRows.map((r) => ({
+    ...r,
+    sharePct: totalMentions > 0 ? (r.mentions / totalMentions) * 100 : 0,
+  }))
+
+  let filtered = withShare
+  if (filter === 'emerging') filtered = filtered.filter((r) => r.topic.emergent)
+  if (filter === 'declining') filtered = filtered.filter((r) => r.variationPct < 0)
+  const q = search.trim().toLowerCase()
+  if (q) {
+    filtered = filtered.filter(
+      (r) =>
+        r.topic.label.toLowerCase().includes(q) ||
+        r.topic.tags.some((tag) => tag.toLowerCase().includes(q)),
+    )
+  }
+  if (sort === 'alpha') {
+    filtered = [...filtered].sort((a, b) =>
+      a.topic.label.localeCompare(b.topic.label, 'pt-BR'),
+    )
+  }
+
+  const allEntities = [...ENTITIES, ...getCustomEntities()]
+  const entity = allEntities.find((e) => e.id === entityId)
+  const rows = limit ? filtered.slice(0, limit) : filtered
+  const remainingMentions = filtered
+    .slice(rows.length)
+    .reduce((sum, r) => sum + r.mentions, 0)
+
+  return {
+    entity,
+    network,
+    totalTopics: allRows.length,
+    totalMentions,
+    rows,
+    totalFiltered: filtered.length,
+    remainingMentions,
+  }
+}

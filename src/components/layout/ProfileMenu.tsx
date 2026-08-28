@@ -4,9 +4,9 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Avatar } from '../ui/Avatar'
 import { FOCUS_RING } from '../ui/focusRing'
+import { AccountModal } from './AccountModal'
 
-const ACCOUNT_ITEMS = [
-  { icon: User, label: 'Minha conta', description: 'Nome, e-mail e senha' },
+const DISABLED_ITEMS = [
   {
     icon: Bell,
     label: 'Alertas e relatórios',
@@ -19,6 +19,7 @@ export function ProfileMenu() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const displayName = user?.displayName || user?.email || 'Usuário'
@@ -98,10 +99,30 @@ export function ProfileMenu() {
           <div className="my-4 border-t border-[var(--baseline)]" />
 
           <nav className="flex flex-col gap-1">
-            {ACCOUNT_ITEMS.map((item) => (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                setAccountOpen(true)
+              }}
+              className={`flex items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-black/5 ${FOCUS_RING}`}
+            >
+              <User
+                size={20}
+                strokeWidth={2}
+                className="shrink-0 text-[var(--text-secondary)]"
+              />
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">
+                  Minha conta
+                </p>
+                <p className="text-xs text-[var(--text-muted)]">Nome, e-mail e senha</p>
+              </div>
+            </button>
+            {DISABLED_ITEMS.map((item) => (
               <div
                 key={item.label}
-                title="Disponível após login"
+                title="Disponível em breve"
                 className="flex cursor-not-allowed items-center gap-3 rounded-xl px-2 py-2"
               >
                 <item.icon
@@ -150,6 +171,8 @@ export function ProfileMenu() {
           </button>
         </div>
       )}
+
+      <AccountModal open={accountOpen} onClose={() => setAccountOpen(false)} />
     </div>
   )
 }

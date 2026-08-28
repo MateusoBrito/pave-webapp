@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Clock, Download, Menu } from 'lucide-react'
 import { useMatch } from 'react-router-dom'
 import { getCollectionStatus } from '../../api/client'
@@ -6,6 +7,7 @@ import { useAsync } from '../../hooks'
 import { formatFullDate } from '../../lib/dates'
 import { Button } from '../ui/Button'
 import { FOCUS_RING } from '../ui/focusRing'
+import { ExportModal } from './ExportModal'
 
 interface Props {
   onMenuClick: () => void
@@ -15,6 +17,7 @@ export function TopBar({ onMenuClick }: Props) {
   const { title, subtitle } = useCurrentPageHeader()
   const { data: status } = useAsync(() => getCollectionStatus(), [])
   const isMethodology = useMatch('/metodologia')
+  const [exportOpen, setExportOpen] = useState(false)
 
   return (
     <header className="flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6">
@@ -56,13 +59,19 @@ export function TopBar({ onMenuClick }: Props) {
                 {status.daysBehind})
               </span>
             )}
-            <Button variant="primary">
+            <Button variant="primary" onClick={() => setExportOpen(true)}>
               <Download size={16} />
               Exportar
             </Button>
           </>
         )}
       </div>
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        pageTitle={title}
+      />
     </header>
   )
 }
