@@ -279,9 +279,9 @@ export interface TopicRankingRow {
   sentiment: TopicSentiment
 }
 
-const ORGANIC_NETWORKS: Network[] = NETWORKS.filter((n) => n.id !== 'meta_ads').map(
-  (n) => n.id,
-)
+export const ORGANIC_NETWORKS: Network[] = NETWORKS.filter(
+  (n) => n.id !== 'meta_ads',
+).map((n) => n.id)
 
 /**
  * GET /topics/ranking — linhas da tabela (Visão Geral) e da lista de ranking (Tópicos).
@@ -381,6 +381,8 @@ export interface TopicDetail {
   sharePct: number
   sentiment: TopicSentiment
   peakDate: string | undefined
+  /** rede com mais menções para este tópico no período — mesmo cálculo de getTopicRanking */
+  dominantNetwork: Network
 }
 
 /** GET /topics/{id} — cabeçalho do drill-down: tags, menções, share, sentimento, pico. */
@@ -402,12 +404,19 @@ export function getTopicDetail(
   for (const p of topicRows) byDate.set(p.date, (byDate.get(p.date) ?? 0) + p.mentions)
   const peakDate = [...byDate.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
 
+  const byNetwork = new Map<Network, number>()
+  for (const p of topicRows)
+    byNetwork.set(p.network, (byNetwork.get(p.network) ?? 0) + p.mentions)
+  const dominantNetwork =
+    [...byNetwork.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ORGANIC_NETWORKS[0]
+
   return delay({
     topic,
     mentions,
     sharePct: (mentions / totalMentions) * 100,
     sentiment: sumSentiment(topicRows),
     peakDate,
+    dominantNetwork,
   })
 }
 
@@ -462,9 +471,13 @@ export interface ComparisonCandidateSummary {
   mentions: number
   sentiment: TopicSentiment
   topTopics: { topic: Topic; mentions: number }[]
+  otherTopicsCount: number
+  otherTopicsMentions: number
 }
 
-/** GET /comparison/{entityId}/summary — card de cada candidato no Comparativo. */
+const COMPARISON_TOP_TOPICS = 7
+
+/** GET /comparison/{entityId}/summary — painel de cada candidato no Comparativo. */
 export function getComparisonSummary(
   entityId: string,
   period: PeriodFilter,
@@ -478,13 +491,55 @@ export function getComparisonSummary(
 
   const byTopic = new Map<string, number>()
   for (const p of rows) byTopic.set(p.topicId, (byTopic.get(p.topicId) ?? 0) + p.mentions)
-  const topTopics = [...byTopic.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
+  const ranked = [...byTopic.entries()].sort((a, b) => b[1] - a[1])
+  const topTopics = ranked
+    .slice(0, COMPARISON_TOP_TOPICS)
     .map(([topicId, m]) => ({ topic: TOPICS.find((t) => t.id === topicId), mentions: m }))
     .filter((t): t is { topic: Topic; mentions: number } => t.topic !== undefined)
+  const rest = ranked.slice(COMPARISON_TOP_TOPICS)
 
-  return delay({ entity, mentions, sentiment: sumSentiment(rows), topTopics })
+  return delay({
+    entity,
+    mentions,
+    sentiment: sumSentiment(rows),
+    topTopics,
+    otherTopicsCount: rest.length,
+    otherTopicsMentions: rest.reduce((sum, [, m]) => sum + m, 0),
+  })
+}
+
+export interface CandidateSentimentPoint {
+  date: string
+  entityId: string
+  negativePct: number
+}
+
+/** GET /comparison/negative-sentiment-series — % negativo por dia, por candidato,
+ * comparável entre eles (Comparativo). Meta Ads não tem sentimento — sempre exclui. */
+export function getNegativeSentimentOverTime(
+  entityIds: string[],
+  period: PeriodFilter,
+  networks: Network[] = [],
+): Promise<CandidateSentimentPoint[]> {
+  const effectiveNetworks =
+    networks.length > 0 ? networks.filter((n) => n !== 'meta_ads') : ORGANIC_NETWORKS
+  if (networks.length > 0 && effectiveNetworks.length === 0) return delay([])
+
+  const rows = filterSeries(period, { entityIds, networks: effectiveNetworks })
+  const byKey = new Map<string, { negative: number; total: number }>()
+  for (const p of rows) {
+    const key = `${p.entityId}|${p.date}`
+    const existing = byKey.get(key) ?? { negative: 0, total: 0 }
+    existing.negative += p.sentiment.negative
+    existing.total += p.sentiment.negative + p.sentiment.neutral + p.sentiment.positive
+    byKey.set(key, existing)
+  }
+
+  const result: CandidateSentimentPoint[] = [...byKey.entries()].map(([key, v]) => {
+    const [entityId, date] = key.split('|')
+    return { date, entityId, negativePct: v.total > 0 ? (v.negative / v.total) * 100 : 0 }
+  })
+  return delay(result.sort((a, b) => a.date.localeCompare(b.date)))
 }
 
 export interface Highlight {

@@ -1,9 +1,19 @@
-import { AlertTriangle, Search } from 'lucide-react'
+import { AlertTriangle, Hash, Search } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { Megaphone, MessageSquare, Play } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { TopicDetail } from '../../api/client'
-import type { TopicSentiment } from '../../types'
+import type { Entity, Network, SentimentLabel, TopicSentiment } from '../../types'
+import {
+  candidateColor,
+  networkColor,
+  networkTint,
+  sentimentColor,
+} from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
 import { formatPercent } from '../../lib/format'
+import { Avatar } from '../ui/Avatar'
+import { IconTile } from '../ui/IconTile'
 import { Skeleton } from '../ui/Skeleton'
 import { StatusCard } from '../ui/StatusCard'
 
@@ -13,7 +23,18 @@ const SENTIMENT_LABEL: Record<string, string> = {
   positive: 'Positivo',
 }
 
-function predominant(sentiment: TopicSentiment): { label: string; pct: number } {
+const NETWORK_ICON: Record<Network, LucideIcon> = {
+  youtube: Play,
+  reddit: MessageSquare,
+  meta_ads: Megaphone,
+}
+const NETWORK_LABEL: Record<Network, string> = {
+  youtube: 'YouTube',
+  reddit: 'Reddit',
+  meta_ads: 'Meta Ads',
+}
+
+function predominant(sentiment: TopicSentiment): { label: SentimentLabel; pct: number } {
   const total = sentiment.negative + sentiment.neutral + sentiment.positive || 1
   if (
     sentiment.negative >= sentiment.neutral &&
@@ -27,25 +48,39 @@ function predominant(sentiment: TopicSentiment): { label: string; pct: number } 
   return { label: 'neutral', pct: (sentiment.neutral / total) * 100 }
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Indicator({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string
+  value: string
+  valueColor?: string
+}) {
   return (
-    <div>
-      <p className="text-[10px] font-medium tracking-wide text-[var(--text-muted)] uppercase">
+    <div className="flex flex-col gap-1">
+      <p className="text-[9px] font-bold tracking-[0.8px] text-[var(--text-muted)] uppercase">
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{value}</p>
+      <p
+        className="text-[19px] font-bold text-[var(--text-primary)]"
+        style={valueColor ? { color: valueColor } : undefined}
+      >
+        {value}
+      </p>
     </div>
   )
 }
 
 interface Props {
   detail: TopicDetail | undefined
+  ownerEntity: Entity | undefined
   loading: boolean
   error?: Error
   refetch?: () => void
 }
 
-export function TopicHeader({ detail, loading, error, refetch }: Props) {
+export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Props) {
   const navigate = useNavigate()
 
   if (error) {
@@ -68,15 +103,21 @@ export function TopicHeader({ detail, loading, error, refetch }: Props) {
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
-        <Skeleton className="h-3 w-32" />
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <Skeleton className="h-7 w-56" />
-            <div className="mt-3 flex gap-1.5">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-5 w-16 rounded-full" />
-              ))}
+      <section
+        className="rounded-[18px] bg-[var(--chart-surface)] p-[22px]"
+        style={{ boxShadow: 'var(--card-shadow)' }}
+      >
+        <Skeleton className="h-3 w-56" />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-[52px] w-[52px] rounded-2xl" />
+            <div>
+              <Skeleton className="h-6 w-56" />
+              <div className="mt-2 flex gap-1.5">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-5 w-16 rounded-full" />
+                ))}
+              </div>
             </div>
           </div>
           <div className="flex gap-6">
@@ -107,37 +148,104 @@ export function TopicHeader({ detail, loading, error, refetch }: Props) {
     )
   }
 
-  return (
-    <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
-      <Link to="/topicos" className="text-xs text-[var(--text-muted)] hover:underline">
-        ← Tópicos / {detail.topic.label}
-      </Link>
+  const { label: sentimentLabel, pct: sentimentPct } = predominant(detail.sentiment)
+  const network = detail.dominantNetwork
+  const NetworkIcon = NETWORK_ICON[network]
+  const entityColor = ownerEntity
+    ? candidateColor(ownerEntity.id)
+    : 'var(--color-primary)'
 
-      <div className="mt-2 flex flex-wrap items-start justify-between gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
-            {detail.topic.label}
-          </h1>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {detail.topic.tags.map((tag) => (
+  return (
+    <section
+      className="flex flex-col gap-[18px] rounded-[18px] bg-[var(--chart-surface)] p-[22px]"
+      style={{ boxShadow: 'var(--card-shadow)' }}
+    >
+      <div className="flex items-center gap-2 text-[11px]">
+        <Link
+          to="/topicos"
+          className="font-semibold text-[var(--color-primary)] hover:underline"
+        >
+          O que os usuários comentam?
+        </Link>
+        <span className="text-[var(--text-muted)]">/</span>
+        <span className="font-semibold text-[var(--color-primary)]">
+          {NETWORK_LABEL[network]}
+        </span>
+        <span className="text-[var(--text-muted)]">/</span>
+        <span className="text-[var(--text-secondary)]">
+          {detail.topic.label}
+          {ownerEntity ? ` · ${ownerEntity.name}` : ''}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <IconTile icon={Hash} tone="purple" size={52} />
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+                {detail.topic.label}
+              </h1>
+              {ownerEntity && (
+                <span
+                  className="flex items-center gap-1.5 rounded-lg py-1.5 pr-2.5 pl-2"
+                  style={{ backgroundColor: `${entityColor}1a` }}
+                >
+                  <Avatar
+                    name={ownerEntity.name}
+                    color={entityColor}
+                    size={18}
+                    photoUrl={ownerEntity.photoUrl}
+                  />
+                  <span className="text-[11px] font-bold" style={{ color: entityColor }}>
+                    {ownerEntity.name}
+                  </span>
+                </span>
+              )}
               <span
-                key={tag}
-                className="rounded-full border border-[var(--baseline)] px-2 py-0.5 text-xs text-[var(--text-secondary)]"
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
+                style={{ backgroundColor: networkTint(network) }}
               >
-                {tag}
+                <NetworkIcon size={11} style={{ color: networkColor(network) }} />
+                <span
+                  className="text-[11px] font-bold"
+                  style={{ color: networkColor(network) }}
+                >
+                  {NETWORK_LABEL[network]}
+                </span>
               </span>
-            ))}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {detail.topic.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-[7px] bg-[var(--page-plane)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-6">
-          <Stat label="Menções" value={detail.mentions.toLocaleString('pt-BR')} />
-          <Stat label="Share do período" value={formatPercent(detail.sharePct)} />
-          <Stat
-            label="Sentimento"
-            value={`${SENTIMENT_LABEL[predominant(detail.sentiment).label]} ${formatPercent(predominant(detail.sentiment).pct)}`}
-          />
-          <Stat
+          <Indicator label="Menções" value={detail.mentions.toLocaleString('pt-BR')} />
+          <Indicator label="Share do período" value={formatPercent(detail.sharePct)} />
+          <div className="flex flex-col gap-1">
+            <p className="text-[9px] font-bold tracking-[0.8px] text-[var(--text-muted)] uppercase">
+              Sentimento
+            </p>
+            <p
+              className="text-[19px] font-bold"
+              style={{ color: sentimentColor(sentimentLabel) }}
+            >
+              {SENTIMENT_LABEL[sentimentLabel]} {formatPercent(sentimentPct)}
+            </p>
+            <p className="text-[9px] text-[var(--text-muted)]">
+              comentários no {NETWORK_LABEL[network]}
+            </p>
+          </div>
+          <Indicator
             label="Pico"
             value={detail.peakDate ? formatShortDate(detail.peakDate) : '—'}
           />

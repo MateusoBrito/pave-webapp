@@ -1,27 +1,30 @@
 import { useState } from 'react'
-import { getComparisonSummary, getEntities, getVolumeOverTime } from '../api/client'
-import { ComparisonCandidateCard } from '../components/dashboard/ComparisonCandidateCard'
+import {
+  getComparisonSummary,
+  getEntities,
+  getNegativeSentimentOverTime,
+  getVolumeOverTime,
+} from '../api/client'
+import { ComparisonPanel } from '../components/dashboard/ComparisonPanel'
+import { NegativeSentimentOverTimeChart } from '../components/dashboard/NegativeSentimentOverTimeChart'
 import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
-import { Button } from '../components/ui/Button'
-import { FOCUS_RING } from '../components/ui/focusRing'
+import { ComparisonEntityPicker } from '../components/filters/ComparisonEntityPicker'
+import { DEFAULT_SINGLE_NETWORK } from '../components/filters/NetworkChipFilter'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
 import { formatDateRange } from '../lib/dates'
 
-function PickerBadge({ value }: { value: string }) {
-  return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--baseline)] text-xs font-medium text-[var(--text-secondary)]">
-      {value}
-    </span>
-  )
-}
-
-const SELECT_CLASS = `rounded-lg border border-[var(--baseline)] bg-[var(--chart-surface)] px-3 py-1.5 text-sm text-[var(--text-primary)] focus:border-[var(--color-primary)] ${FOCUS_RING}`
-
 export function ComparisonPage() {
   const { networks, period } = useFilters()
-  const { data: entities = [] } = useAsync(() => getEntities(), [])
+  // filtro de rede aqui é seleção única (ver NetworkChipFilter singleSelect) — quando
+  // nada foi escolhido ainda, usa o mesmo default que o chip mostra visualmente, sem
+  // gravar no filtro global (evita afetar o que outras telas veem)
+  const effectiveNetworks = networks.length > 0 ? networks : [DEFAULT_SINGLE_NETWORK]
+  const { data: entities = [], refetch: refetchEntities } = useAsync(
+    () => getEntities(),
+    [],
+  )
 
   const [entityAId, setEntityAId] = useState<string>()
   const [entityBId, setEntityBId] = useState<string>()
@@ -38,7 +41,7 @@ export function ComparisonPage() {
       : formatDateRange(period),
   )
 
-  const deps = [a, b, period.from, period.to, networks.join(',')]
+  const deps = [a, b, period.from, period.to, effectiveNetworks.join(',')]
 
   const {
     data: summaryA,
@@ -46,7 +49,8 @@ export function ComparisonPage() {
     error: errorA,
     refetch: refetchA,
   } = useAsync(
-    () => (a ? getComparisonSummary(a, period, networks) : Promise.resolve(undefined)),
+    () =>
+      a ? getComparisonSummary(a, period, effectiveNetworks) : Promise.resolve(undefined),
     deps,
   )
   const {
@@ -55,7 +59,8 @@ export function ComparisonPage() {
     error: errorB,
     refetch: refetchB,
   } = useAsync(
-    () => (b ? getComparisonSummary(b, period, networks) : Promise.resolve(undefined)),
+    () =>
+      b ? getComparisonSummary(b, period, effectiveNetworks) : Promise.resolve(undefined),
     deps,
   )
   const {
@@ -64,60 +69,54 @@ export function ComparisonPage() {
     error: volumeError,
     refetch: refetchVolume,
   } = useAsync(
-    () => (a && b ? getVolumeOverTime([a, b], period, networks) : Promise.resolve([])),
+    () =>
+      a && b ? getVolumeOverTime([a, b], period, effectiveNetworks) : Promise.resolve([]),
+    deps,
+  )
+  const {
+    data: negativeSentiment = [],
+    loading: negativeSentimentLoading,
+    error: negativeSentimentError,
+    refetch: refetchNegativeSentiment,
+  } = useAsync(
+    () =>
+      a && b
+        ? getNegativeSentimentOverTime([a, b], period, effectiveNetworks)
+        : Promise.resolve([]),
     deps,
   )
 
+  const pairEntities = [entityA, entityB].filter((e): e is NonNullable<typeof e> =>
+    Boolean(e),
+  )
+  const totalMentions = (summaryA?.mentions ?? 0) + (summaryB?.mentions ?? 0) || 1
+  const sharePctA = ((summaryA?.mentions ?? 0) / totalMentions) * 100
+  const sharePctB = ((summaryB?.mentions ?? 0) / totalMentions) * 100
+
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-4">
-        <PickerBadge value="A" />
-        <select
-          value={a ?? ''}
-          onChange={(e) => setEntityAId(e.target.value)}
-          className={SELECT_CLASS}
-        >
-          {entities.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
+      <ComparisonEntityPicker
+        entities={entities}
+        aId={a}
+        bId={b}
+        onChangeA={setEntityAId}
+        onChangeB={setEntityBId}
+        onEntitiesChanged={refetchEntities}
+      />
 
-        <span className="text-[var(--text-muted)]">×</span>
-
-        <PickerBadge value="B" />
-        <select
-          value={b ?? ''}
-          onChange={(e) => setEntityBId(e.target.value)}
-          className={SELECT_CLASS}
-        >
-          {entities.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
-
-        <Button
-          variant="outline"
-          disabled
-          title="Disponível quando novos candidatos entrarem via config (Fase 6)"
-          className="ml-auto"
-        >
-          + Adicionar candidato (vem da API — Fase 6)
-        </Button>
-      </div>
-
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ComparisonCandidateCard
+      <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <ComparisonPanel
+          tag="A"
           summary={summaryA}
+          sharePct={sharePctA}
           loading={loadingA}
           error={errorA}
           refetch={refetchA}
         />
-        <ComparisonCandidateCard
+        <ComparisonPanel
+          tag="B"
           summary={summaryB}
+          sharePct={sharePctB}
           loading={loadingB}
           error={errorB}
           refetch={refetchB}
@@ -125,16 +124,22 @@ export function ComparisonPage() {
       </section>
 
       <VolumeOverTimeChart
-        entities={[entityA, entityB].filter((e): e is NonNullable<typeof e> =>
-          Boolean(e),
-        )}
+        entities={pairEntities}
         points={volume}
         loading={volumeLoading}
         error={volumeError}
         refetch={refetchVolume}
         period={period}
         title="Volume comparado ao longo do tempo"
-        subtitle="Série diária · mesma escala para os dois candidatos"
+        subtitle="Menções por dia, na mesma escala para os dois candidatos"
+      />
+
+      <NegativeSentimentOverTimeChart
+        entities={pairEntities}
+        points={negativeSentiment}
+        loading={negativeSentimentLoading}
+        error={negativeSentimentError}
+        refetch={refetchNegativeSentiment}
       />
     </>
   )

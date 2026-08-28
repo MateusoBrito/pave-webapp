@@ -5,10 +5,11 @@ import {
   getTopicCandidateSeries,
   getTopicDetail,
   getTopicDocuments,
+  ORGANIC_NETWORKS,
 } from '../api/client'
-import { ExamplePostsList } from '../components/dashboard/ExamplePostsList'
 import { SentimentDonut } from '../components/dashboard/SentimentDonut'
 import { SentimentOverTimeChart } from '../components/dashboard/SentimentOverTimeChart'
+import { TopicExamplePosts } from '../components/dashboard/TopicExamplePosts'
 import { TopicHeader } from '../components/dashboard/TopicHeader'
 import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
 import { useFilters } from '../context/FiltersContext'
@@ -16,23 +17,19 @@ import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
 import { formatDateRange } from '../lib/dates'
 
+// O tópico já nasce associado a um candidato (ver FilterBar) — o filtro de candidato
+// do resto do app não se aplica aqui, só o período. Rede sempre fica restrita às
+// orgânicas (YouTube/Reddit): Meta Ads é conteúdo pago do próprio candidato, não
+// conversa do público — mesma regra já usada em getTopicRanking/getOverviewSummary.
+const NO_ENTITY_RESTRICTION: string[] = []
+
 export function TopicDrilldownPage() {
   const { topicId } = useParams<{ topicId: string }>()
-  const { candidateIds, networks, period } = useFilters()
+  const { period } = useFilters()
 
   const { data: entities = [] } = useAsync(() => getEntities(), [])
-  const selectedEntities =
-    candidateIds.length === 0
-      ? entities
-      : entities.filter((e) => candidateIds.includes(e.id))
 
-  const deps = [
-    topicId,
-    candidateIds.join(','),
-    period.from,
-    period.to,
-    networks.join(','),
-  ]
+  const deps = [topicId, period.from, period.to]
 
   const {
     data: detail,
@@ -42,15 +39,16 @@ export function TopicDrilldownPage() {
   } = useAsync(
     () =>
       topicId
-        ? getTopicDetail(topicId, candidateIds, period, networks)
+        ? getTopicDetail(topicId, NO_ENTITY_RESTRICTION, period, ORGANIC_NETWORKS)
         : Promise.resolve(undefined),
     deps,
   )
 
-  // cada tópico pertence a um candidato só — a legenda mostra só quem fala dele
-  const topicOwnerEntities = detail
-    ? selectedEntities.filter((e) => e.id === detail.topic.entityId)
-    : selectedEntities
+  // cada tópico pertence a um candidato só
+  const ownerEntity = detail
+    ? entities.find((e) => e.id === detail.topic.entityId)
+    : undefined
+  const topicOwnerEntities = ownerEntity ? [ownerEntity] : []
 
   usePageHeader(
     'Drill-down de Tópico',
@@ -65,7 +63,12 @@ export function TopicDrilldownPage() {
   } = useAsync(
     () =>
       topicId
-        ? getTopicCandidateSeries(topicId, candidateIds, period, networks)
+        ? getTopicCandidateSeries(
+            topicId,
+            NO_ENTITY_RESTRICTION,
+            period,
+            ORGANIC_NETWORKS,
+          )
         : Promise.resolve([]),
     deps,
   )
@@ -77,7 +80,7 @@ export function TopicDrilldownPage() {
   } = useAsync(
     () =>
       topicId
-        ? getSentimentSeries(topicId, candidateIds, period, networks)
+        ? getSentimentSeries(topicId, NO_ENTITY_RESTRICTION, period, ORGANIC_NETWORKS)
         : Promise.resolve([]),
     deps,
   )
@@ -89,7 +92,10 @@ export function TopicDrilldownPage() {
   } = useAsync(
     () =>
       topicId
-        ? getTopicDocuments(topicId, { entityIds: candidateIds, networks })
+        ? getTopicDocuments(topicId, {
+            entityIds: NO_ENTITY_RESTRICTION,
+            networks: ORGANIC_NETWORKS,
+          })
         : Promise.resolve([]),
     deps,
   )
@@ -98,6 +104,7 @@ export function TopicDrilldownPage() {
     <>
       <TopicHeader
         detail={detail}
+        ownerEntity={ownerEntity}
         loading={detailLoading}
         error={detailError}
         refetch={refetchDetail}
@@ -112,7 +119,7 @@ export function TopicDrilldownPage() {
           refetch={refetchSeries}
           period={period}
           title="Evolução do tópico"
-          subtitle="Menções/dia por candidato"
+          subtitle="Menções por dia"
         />
         <SentimentDonut
           sentiment={detail?.sentiment}
@@ -129,7 +136,7 @@ export function TopicDrilldownPage() {
         refetch={refetchSentiment}
       />
 
-      <ExamplePostsList
+      <TopicExamplePosts
         documents={documents}
         loading={documentsLoading}
         error={documentsError}

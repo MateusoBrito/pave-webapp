@@ -1,9 +1,58 @@
+import { Info } from 'lucide-react'
+import { useMatch } from 'react-router-dom'
 import { CandidateAvatarFilter } from './CandidateAvatarFilter'
 import { NetworkChipFilter } from './NetworkChipFilter'
 import { PeriodFilterCard } from './PeriodFilterCard'
 
-/** Filtros globais e persistentes — mesma barra em todas as telas, refletidos na URL. */
+/**
+ * Filtros globais, refletidos na URL — mas o que aparece muda por rota: o drill-down
+ * de tópico e o Comparativo têm filtros diferentes do padrão (ver README das duas
+ * telas no Figma).
+ */
 export function FilterBar() {
+  const isTopicDetail = useMatch('/topicos/:topicId')
+  const isComparison = useMatch('/comparativo')
+
+  if (isTopicDetail) {
+    return (
+      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
+          <div className="md:w-[360px] md:shrink-0">
+            <PeriodFilterCard />
+          </div>
+          <div className="flex flex-1 items-start gap-3 rounded-2xl border border-[var(--baseline)] bg-[var(--tint-primary)] px-5 py-[18px]">
+            <Info size={18} className="mt-0.5 shrink-0 text-[var(--tint-text-primary)]" />
+            <div>
+              <p className="text-xs font-bold text-[var(--tint-text-primary)]">
+                Aqui não há filtro de candidato, rede ou assunto
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+                O tópico já nasce associado a um candidato e a uma rede — o modelo gera
+                conjuntos separados para cada combinação. Só o período faz sentido
+                ajustar.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isComparison) {
+    return (
+      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <PeriodFilterCard />
+          <NetworkChipFilter
+            singleSelect
+            title="Em qual rede?"
+            note="Uma rede por vez — as métricas não somam entre redes. Em Meta Ads não há sentimento."
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="px-4 pt-4 sm:px-6 sm:pt-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

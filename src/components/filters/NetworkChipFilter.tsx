@@ -11,10 +11,32 @@ const NETWORK_ICON: Record<Network, LucideIcon> = {
   meta_ads: Megaphone,
 }
 
-export function NetworkChipFilter() {
+/** Rede assumida quando o modo de seleção única ainda não tem nada escolhido — só
+ * afeta a exibição do próprio chip (não escreve no filtro global); quem consome os
+ * dados nessa tela precisa aplicar o mesmo default (ver ComparisonPage). */
+export const DEFAULT_SINGLE_NETWORK: Network = 'reddit'
+
+interface Props {
+  /** true = seleção única (clicar troca em vez de alternar) — usado no Comparativo,
+   * onde as métricas não somam entre redes */
+  singleSelect?: boolean
+  title?: string
+  /** texto de apoio abaixo dos chips — ex. explicando a seleção única */
+  note?: string
+}
+
+export function NetworkChipFilter({
+  singleSelect = false,
+  title = 'Onde está acontecendo?',
+  note,
+}: Props) {
   const { networks, setNetworks } = useFilters()
 
   function toggle(id: Network) {
+    if (singleSelect) {
+      setNetworks(networks.length === 1 && networks[0] === id ? [] : [id])
+      return
+    }
     const allSelected = networks.length === 0
     const base = allSelected ? NETWORKS.map((n) => n.id) : networks
     const isSelected = allSelected || networks.includes(id)
@@ -24,12 +46,14 @@ export function NetworkChipFilter() {
 
   return (
     <div className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-4">
-      <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">
-        Onde está acontecendo?
-      </p>
+      <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{title}</p>
       <div className="flex flex-wrap gap-2">
         {NETWORKS.map((network) => {
-          const selected = networks.length === 0 || networks.includes(network.id)
+          const selected = singleSelect
+            ? networks.length > 0
+              ? networks.includes(network.id)
+              : network.id === DEFAULT_SINGLE_NETWORK
+            : networks.length === 0 || networks.includes(network.id)
           const Icon = NETWORK_ICON[network.id]
           return (
             <button
@@ -57,6 +81,7 @@ export function NetworkChipFilter() {
           )
         })}
       </div>
+      {note && <p className="mt-3 text-[10px] text-[var(--text-muted)]">{note}</p>}
     </div>
   )
 }
