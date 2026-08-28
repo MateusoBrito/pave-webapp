@@ -42,11 +42,7 @@ export function TopBar({ onMenuClick }: Props) {
               <Clock size={13} className="shrink-0 text-[var(--text-muted)]" />
               Modelo de tópicos v7 · re-modelado em 01/07/2026
             </span>
-            <Button
-              variant="primary"
-              disabled
-              title="Exportação em PDF ainda não existe"
-            >
+            <Button variant="primary" disabled title="Exportação em PDF ainda não existe">
               <Download size={16} />
               Baixar em PDF
             </Button>

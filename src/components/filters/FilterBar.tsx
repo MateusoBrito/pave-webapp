@@ -13,9 +13,22 @@ export function FilterBar() {
   const isTopicDetail = useMatch('/topicos/:topicId')
   const isComparison = useMatch('/comparativo')
   const isMethodology = useMatch('/metodologia')
+  const isPosts = useMatch('/posts')
 
   // metodologia é conteúdo estático — não filtra por candidato, período ou rede
   if (isMethodology) return null
+
+  // anúncios são sempre Meta Ads — o filtro de rede não se aplica aqui
+  if (isPosts) {
+    return (
+      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <CandidateAvatarFilter />
+          <PeriodFilterCard />
+        </div>
+      </div>
+    )
+  }
 
   if (isTopicDetail) {
     return (

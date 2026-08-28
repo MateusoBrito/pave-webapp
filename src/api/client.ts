@@ -627,12 +627,140 @@ export function getTopicDocuments(
  * Library). Sempre só `meta_ads`, independente do filtro de rede: é o que o candidato
  * publica, não conversa do público em outras redes.
  */
-export function getCandidatePosts(entityIds: string[]): Promise<TopicDocument[]> {
+export function getCandidatePosts(
+  entityIds: string[],
+  period?: PeriodFilter,
+): Promise<TopicDocument[]> {
   return delay(
     MOCK_DOCUMENTS.filter(
       (d) =>
         d.network === 'meta_ads' &&
-        (entityIds.length === 0 || entityIds.includes(d.entityId)),
+        (entityIds.length === 0 || entityIds.includes(d.entityId)) &&
+        (!period || inPeriod(d.publishedAt.slice(0, 10), period)),
     ).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)),
+  )
+}
+
+function metaAdsDocs(entityIds: string[], period: PeriodFilter): TopicDocument[] {
+  return MOCK_DOCUMENTS.filter(
+    (d) =>
+      d.network === 'meta_ads' &&
+      d.ad !== undefined &&
+      (entityIds.length === 0 || entityIds.includes(d.entityId)) &&
+      inPeriod(d.publishedAt.slice(0, 10), period),
+  )
+}
+
+/** Anúncio ainda ativo se sua janela declarada (publishedAt + dias no ar) cobre hoje. */
+function isAdStillActive(doc: TopicDocument): boolean {
+  if (!doc.ad) return false
+  const end = new Date(doc.publishedAt)
+  end.setUTCDate(end.getUTCDate() + doc.ad.daysActive)
+  return end.getTime() >= Date.now()
+}
+
+export interface CandidateContentSummary {
+  investmentMinBRL: number
+  investmentMaxBRL: number
+  adsCount: number
+  activeAdsCount: number
+  impressionsMinTotal: number
+  impressionsMaxTotal: number
+}
+
+/** GET /candidates/content-summary — KPIs do topo de "O que os candidatos postam?". */
+export function getCandidateContentSummary(
+  entityIds: string[],
+  period: PeriodFilter,
+): Promise<CandidateContentSummary> {
+  const docs = metaAdsDocs(entityIds, period)
+  return delay({
+    investmentMinBRL: docs.reduce((sum, d) => sum + (d.ad?.investmentMinBRL ?? 0), 0),
+    investmentMaxBRL: docs.reduce((sum, d) => sum + (d.ad?.investmentMaxBRL ?? 0), 0),
+    adsCount: docs.length,
+    activeAdsCount: docs.filter(isAdStillActive).length,
+    impressionsMinTotal: docs.reduce((sum, d) => sum + (d.ad?.impressionsMin ?? 0), 0),
+    impressionsMaxTotal: docs.reduce((sum, d) => sum + (d.ad?.impressionsMax ?? 0), 0),
+  })
+}
+
+export interface AdTopicRankingRow {
+  topic: Topic
+  investmentMinBRL: number
+  investmentMaxBRL: number
+  adsCount: number
+}
+
+/** GET /candidates/content/ranking — tópicos ordenados por investimento declarado. */
+export function getAdTopicRanking(
+  entityIds: string[],
+  period: PeriodFilter,
+  limit?: number,
+): Promise<AdTopicRankingRow[]> {
+  const docs = metaAdsDocs(entityIds, period)
+  const byTopic = new Map<string, { min: number; max: number; count: number }>()
+  for (const d of docs) {
+    const cur = byTopic.get(d.topicId) ?? { min: 0, max: 0, count: 0 }
+    cur.min += d.ad?.investmentMinBRL ?? 0
+    cur.max += d.ad?.investmentMaxBRL ?? 0
+    cur.count += 1
+    byTopic.set(d.topicId, cur)
+  }
+
+  const rows: AdTopicRankingRow[] = [...byTopic.entries()]
+    .map(([topicId, v]) => {
+      const topic = TOPICS.find((t) => t.id === topicId)
+      return topic
+        ? { topic, investmentMinBRL: v.min, investmentMaxBRL: v.max, adsCount: v.count }
+        : undefined
+    })
+    .filter((row): row is AdTopicRankingRow => row !== undefined)
+    .sort(
+      (a, b) =>
+        b.investmentMinBRL +
+        b.investmentMaxBRL -
+        (a.investmentMinBRL + a.investmentMaxBRL),
+    )
+
+  return delay(limit ? rows.slice(0, limit) : rows)
+}
+
+export interface AdCandidateBreakdownRow {
+  entity: Entity
+  investmentMinBRL: number
+  investmentMaxBRL: number
+  adsCount: number
+}
+
+/** GET /candidates/content/by-candidate — investimento e volume de anúncios por
+ * candidato, para comparar lado a lado quem investiu mais no período. */
+export function getAdCandidateBreakdown(
+  entityIds: string[],
+  period: PeriodFilter,
+): Promise<AdCandidateBreakdownRow[]> {
+  const allEntities = [...ENTITIES, ...getCustomEntities()]
+  const relevant =
+    entityIds.length > 0
+      ? allEntities.filter((e) => entityIds.includes(e.id))
+      : allEntities
+  const docs = metaAdsDocs([], period)
+
+  const rows = relevant.map((entity) => {
+    const own = docs.filter((d) => d.entityId === entity.id)
+    return {
+      entity,
+      investmentMinBRL: own.reduce((sum, d) => sum + (d.ad?.investmentMinBRL ?? 0), 0),
+      investmentMaxBRL: own.reduce((sum, d) => sum + (d.ad?.investmentMaxBRL ?? 0), 0),
+      adsCount: own.length,
+    }
+  })
+
+  return delay(
+    rows.sort(
+      (a, b) =>
+        b.investmentMinBRL +
+        b.investmentMaxBRL -
+        (a.investmentMinBRL + a.investmentMaxBRL),
+    ),
   )
 }

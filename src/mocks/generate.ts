@@ -1,10 +1,12 @@
 import { NETWORKS, type Network } from '../types'
 import type {
+  AdMetadata,
   SentimentLabel,
   TopicDocument,
   TopicSentiment,
   TopicSeriesPoint,
 } from '../types'
+import { ENTITIES } from './entities'
 import { TOPICS } from './topics'
 
 // 180 dias — cobre com folga até o preset de 90d + seu período anterior de mesma duração
@@ -141,6 +143,74 @@ const TEMPLATES = [
   'Comentário da live de ontem sobre {topic} gerou bastante reação.',
 ]
 
+const AD_HEADLINE_TEMPLATES = [
+  'Saiba o que fizemos por {topic}',
+  'Nosso plano para {topic}',
+  'Resultados em {topic}',
+  'Compromisso com {topic}',
+]
+
+const AD_CTA = 'Saiba mais'
+
+function slugify(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function domainFor(entityId: string): string {
+  const entity = ENTITIES.find((e) => e.id === entityId)
+  return `${slugify(entity?.name ?? entityId)}.com.br`
+}
+
+/** Metadados de anúncio derivados do gasto (`engagement`) — a Ad Library só devolve
+ * faixas, não valores exatos, então a faixa é construída em torno do ponto gerado
+ * (ver Metodologia). Impressões e dias no ar são proxies plausíveis, sem fonte real
+ * ainda (ficam pra quando a Ad Library entrar de fato, Fase 3). */
+function generateAdMetadata(
+  topicLabel: string,
+  entityId: string,
+  seed: string,
+  engagement: number,
+): AdMetadata {
+  const investmentMinBRL = Math.max(500, Math.round((engagement * 0.7) / 500) * 500)
+  const investmentMaxBRL = Math.max(
+    investmentMinBRL + 500,
+    Math.round((engagement * 1.3) / 500) * 500,
+  )
+  const impressionsFactor = 15 + seededRandom(`${seed}-impf`) * 25
+  const impressionsMid = Math.max(1000, Math.round(engagement * impressionsFactor))
+  const impressionsMin = Math.round((impressionsMid * 0.7) / 1000) * 1000
+  const impressionsMax = Math.round((impressionsMid * 1.4) / 1000) * 1000
+  const daysActive = 3 + Math.floor(seededRandom(`${seed}-days`) * 42)
+
+  const platformRoll = seededRandom(`${seed}-plat`)
+  const platforms: AdMetadata['platforms'] =
+    platformRoll < 0.34
+      ? ['facebook']
+      : platformRoll < 0.67
+        ? ['instagram']
+        : ['facebook', 'instagram']
+
+  const headlineIndex = Math.floor(
+    seededRandom(`${seed}-headline`) * AD_HEADLINE_TEMPLATES.length,
+  )
+
+  return {
+    investmentMinBRL,
+    investmentMaxBRL,
+    impressionsMin,
+    impressionsMax,
+    daysActive,
+    platforms,
+    headline: AD_HEADLINE_TEMPLATES[headlineIndex].replace('{topic}', topicLabel),
+    domain: domainFor(entityId),
+    cta: AD_CTA,
+  }
+}
+
 function generateDocuments(): TopicDocument[] {
   const documents: TopicDocument[] = []
   let seq = 0
@@ -159,6 +229,8 @@ function generateDocuments(): TopicDocument[] {
       // anúncio paga por alcance/gasto, não por curtida — escala diferente do orgânico
       const engagementRange = network === 'meta_ads' ? 20000 : 1500
 
+      const engagement = Math.round(seededRandom(seed + 'e') * engagementRange)
+
       documents.push({
         id: `doc-${seq}`,
         topicId: topic.id,
@@ -167,8 +239,12 @@ function generateDocuments(): TopicDocument[] {
         author: `${AUTHOR_PREFIXES[authorIndex]}_${Math.floor(seededRandom(seed + 'u') * 999)}`,
         text: TEMPLATES[templateIndex].replace('{topic}', topic.label.toLowerCase()),
         publishedAt: `${isoDate(daysAgo)}T${String(Math.floor(seededRandom(seed + 'h') * 24)).padStart(2, '0')}:00:00Z`,
-        engagement: Math.round(seededRandom(seed + 'e') * engagementRange),
+        engagement,
         sentiment: pickSentimentLabel(bias, seed),
+        ad:
+          network === 'meta_ads'
+            ? generateAdMetadata(topic.label, topic.entityId, seed, engagement)
+            : undefined,
       })
     }
   }
