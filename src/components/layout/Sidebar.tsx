@@ -1,6 +1,6 @@
 import { Columns3, Home, Info, Megaphone, MessageCircle, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { FOCUS_RING } from '../ui/focusRing'
 import { ProfileMenu } from './ProfileMenu'
 
@@ -17,7 +17,23 @@ interface Props {
   onClose: () => void
 }
 
+/** O drill-down de tópico (/topicos/:id) não tem item próprio no menu — ele "pertence"
+ * à seção de onde o usuário entrou. Por padrão isso é "O que os usuários comentam?" (é
+ * lá que mora o ranking de tópicos), mas dá pra chegar lá também pelo "Ver detalhes" da
+ * Visão Geral — nesse caso o item ativo deve continuar sendo Visão Geral, sem trocar de
+ * aba embaixo do usuário. Cada ponto de entrada informa de onde veio via
+ * `state: { from }` no `navigate()` (ver TopTopicsTable); sem isso, cai no padrão. */
+function useActiveNavPath(): string {
+  const location = useLocation()
+  const isTopicDetail = /^\/topicos\/[^/]+$/.test(location.pathname)
+  if (!isTopicDetail) return location.pathname
+  const from = (location.state as { from?: string } | null)?.from
+  return from ?? '/topicos'
+}
+
 export function Sidebar({ open, onClose }: Props) {
+  const activePath = useActiveNavPath()
+
   return (
     <>
       {open && (
@@ -53,24 +69,24 @@ export function Sidebar({ open, onClose }: Props) {
           </div>
 
           <nav className="flex flex-col gap-1">
-            {NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                onClick={onClose}
-                className={({ isActive }) =>
-                  `flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm leading-tight transition-colors ${FOCUS_RING} ${
+            {NAV_ITEMS.map((item) => {
+              const isActive = item.to === activePath
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={onClose}
+                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm leading-tight transition-colors ${FOCUS_RING} ${
                     isActive
                       ? 'bg-[var(--color-primary)] text-white'
                       : 'text-[var(--sidebar-text-muted)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-text)]'
-                  }`
-                }
-              >
-                <item.icon size={18} strokeWidth={2} className="shrink-0" />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+                  }`}
+                >
+                  <item.icon size={18} strokeWidth={2} className="shrink-0" />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
           </nav>
         </div>
 

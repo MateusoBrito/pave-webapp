@@ -166,7 +166,9 @@ export function TopTopicsTable({ rows, entities, loading, error, refetch }: Prop
                       <td className="py-3 text-right">
                         <button
                           type="button"
-                          onClick={() => navigate(`/topicos/${row.topic.id}`)}
+                          onClick={() =>
+                            navigate(`/topicos/${row.topic.id}`, { state: { from: '/' } })
+                          }
                           className="rounded-full bg-[var(--tint-primary)] px-3 py-1 text-xs font-medium text-[var(--color-primary-dark)] hover:brightness-95"
                         >
                           Ver detalhes ›
