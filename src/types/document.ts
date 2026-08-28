@@ -29,3 +29,13 @@ export interface TopicDocument {
   sentiment: SentimentLabel
   ad?: AdMetadata
 }
+
+/** Um comentário de resposta sob uma publicação — o painel "Ver comentários" mostra a
+ * thread inteira de um TopicDocument. Autor nunca é exposto (ver Metodologia/LGPD). */
+export interface PublicationComment {
+  id: string
+  text: string
+  sentiment: SentimentLabel
+  votes: number
+  hoursAgo: number
+}

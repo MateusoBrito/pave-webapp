@@ -2,6 +2,7 @@ import { NETWORKS } from '../types'
 import type {
   Entity,
   Network,
+  PublicationComment,
   SentimentLabel,
   Topic,
   TopicDocument,
@@ -13,6 +14,7 @@ import { seededRandom } from '../lib/random'
 import {
   EMERGENT_TOPICS,
   ENTITIES,
+  generatePublicationComments,
   getCustomEntities,
   MOCK_DOCUMENTS,
   MOCK_SERIES,
@@ -856,4 +858,77 @@ export function getNetworkDocuments(
         inPeriod(d.publishedAt.slice(0, 10), period),
     ).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)),
   )
+}
+
+export interface PublicationCommentsQuery {
+  documentId: string
+  /** undefined = todos */
+  sentiment?: SentimentLabel
+  sort?: 'top' | 'recent'
+  limit?: number
+  offset?: number
+}
+
+export interface PublicationCommentsResult {
+  document: TopicDocument
+  topic: Topic
+  entity: Entity | undefined
+  /** "r/brasil" no Reddit, "Canal do Lula" no YouTube — contexto de onde a publicação
+   * está, ao lado do total no cabeçalho do painel */
+  contextLabel: string
+  /** contagem total por sentimento — sempre sobre a thread inteira, não muda com o
+   * filtro ativo (é o que alimenta os chips "Negativo 720" etc.) */
+  totalBySentiment: TopicSentiment
+  /** total de comentários que batem com o filtro de sentimento atual — usado pro
+   * texto "Carregar mais N comentários" */
+  totalFiltered: number
+  comments: PublicationComment[]
+}
+
+/** GET /documents/{id}/comments — thread de comentários do painel "Ver comentários".
+ * A lista completa é gerada sob demanda (generatePublicationComments), então cada
+ * chamada aqui só faz a filtragem/ordenação/paginação em cima dela. */
+export function getPublicationComments(
+  query: PublicationCommentsQuery,
+): Promise<PublicationCommentsResult | undefined> {
+  const { documentId, sentiment, sort = 'top', limit = 20, offset = 0 } = query
+  const doc = MOCK_DOCUMENTS.find((d) => d.id === documentId)
+  if (!doc) return delay(undefined)
+  const topic = TOPICS.find((t) => t.id === doc.topicId)
+  if (!topic) return delay(undefined)
+
+  const allEntities = [...ENTITIES, ...getCustomEntities()]
+  const entity = allEntities.find((e) => e.id === doc.entityId)
+  const contextLabel =
+    doc.network === 'reddit'
+      ? REDDIT_SUBREDDITS[
+          Math.floor(seededRandom(`${doc.id}-subreddit`) * REDDIT_SUBREDDITS.length)
+        ]
+      : entity
+        ? `Canal do ${shortName(entity.name)}`
+        : (NETWORKS.find((n) => n.id === doc.network)?.label ?? doc.network)
+
+  const all = generatePublicationComments(doc, topic.label)
+  const totalBySentiment = all.reduce(
+    (acc, c) => {
+      acc[c.sentiment] += 1
+      return acc
+    },
+    { negative: 0, neutral: 0, positive: 0 } as TopicSentiment,
+  )
+
+  const filtered = sentiment ? all.filter((c) => c.sentiment === sentiment) : all
+  const sorted = [...filtered].sort((a, b) =>
+    sort === 'top' ? b.votes - a.votes : a.hoursAgo - b.hoursAgo,
+  )
+
+  return delay({
+    document: doc,
+    topic,
+    entity,
+    contextLabel,
+    totalBySentiment,
+    totalFiltered: sorted.length,
+    comments: sorted.slice(offset, offset + limit),
+  })
 }

@@ -1,6 +1,7 @@
 import { NETWORKS, type Network } from '../types'
 import type {
   AdMetadata,
+  PublicationComment,
   SentimentLabel,
   TopicDocument,
   TopicSentiment,
@@ -45,7 +46,7 @@ const TOPIC_NEGATIVITY_BIAS: Record<string, number> = {
   'flavio-agenda-economica': 0.35,
 }
 
-function negativityBias(topicId: string): number {
+export function negativityBias(topicId: string): number {
   return TOPIC_NEGATIVITY_BIAS[topicId] ?? 0.4
 }
 
@@ -78,7 +79,7 @@ function splitSentiment(mentions: number, bias: number, seed: string): TopicSent
   return { negative, neutral: mentions - negative - positive, positive }
 }
 
-function pickSentimentLabel(bias: number, seed: string): SentimentLabel {
+export function pickSentimentLabel(bias: number, seed: string): SentimentLabel {
   const { negative: negShare, positive: posShare } = sentimentShares(bias, seed)
   const r = seededRandom(`${seed}-pick`)
   if (r < negShare) return 'negative'
@@ -239,6 +240,77 @@ function generateDocuments(): TopicDocument[] {
   }
 
   return documents
+}
+
+const REPLY_TEMPLATES: Record<SentimentLabel, string[]> = {
+  negative: [
+    'Não concordo com a condução de {topic}, deveria ser diferente.',
+    'Discurso não resolve nada sobre {topic}, na prática não muda.',
+    'Cansei de promessa vazia sobre {topic}.',
+    'Isso sobre {topic} só piora a cada mês, sinceramente.',
+    'Falta muito pra {topic} funcionar de verdade.',
+    'Só ouço desculpa quando o assunto é {topic}.',
+    'Prometeram resolver {topic} e não vejo diferença nenhuma no dia a dia.',
+    'Cadê o resultado prático em {topic}? Só vejo anúncio.',
+    'Todo mundo fala de {topic}, mas quem sente na pele sabe que não mudou nada.',
+    'Decepcionado com o rumo de {topic} esse ano.',
+    'Já perdi a conta de quantas vezes prometeram mexer em {topic}.',
+  ],
+  neutral: [
+    'Alguém tem mais dados sobre {topic}? Queria entender melhor.',
+    'Resumo do que saiu hoje sobre {topic}, sem muita novidade.',
+    'Ainda não tenho opinião formada sobre {topic}.',
+    'Alguém tem a fonte desses números sobre {topic}?',
+    'Vi isso passar em outro lugar também, sobre {topic}.',
+    'Não sei se é bom ou ruim, só reparei na mudança em {topic}.',
+    'Queria comparar {topic} com o que aconteceu no ano passado.',
+    'Alguém consegue explicar melhor esse ponto sobre {topic}?',
+  ],
+  positive: [
+    'Achei um avanço importante em {topic}, vamos ver se continua.',
+    'Pela primeira vez sinto que {topic} está indo pro caminho certo.',
+    'Reconheço o esforço em {topic}, espero que mantenha.',
+    'Aqui na minha região {topic} melhorou nos últimos meses, sinceramente.',
+    'Finalmente uma notícia boa sobre {topic}.',
+    'Dessa vez pareceu diferente, {topic} andou pra frente de verdade.',
+    'Fiquei surpreso positivamente com o avanço em {topic}.',
+    'Vale reconhecer quando {topic} vai bem, e esse mês foi um exemplo.',
+  ],
+}
+
+/** Total de comentários sob uma publicação — proxy plausível, sem fonte real ainda
+ * (a Fase 3 traria a contagem real da API de cada plataforma). */
+function commentCountFor(doc: TopicDocument): number {
+  return 40 + Math.floor(seededRandom(`${doc.id}-total`) * 500)
+}
+
+/** Gera a thread inteira de comentários de uma publicação, sob demanda — só roda
+ * quando o painel "Ver comentários" abre pra aquele documento específico, nunca no
+ * carregamento inicial dos mocks (geraria milhares de objetos à toa). Determinístico
+ * por doc.id, então reabrir o mesmo painel sempre mostra a mesma thread. */
+export function generatePublicationComments(
+  doc: TopicDocument,
+  topicLabel: string,
+): PublicationComment[] {
+  const bias = negativityBias(doc.topicId)
+  const total = commentCountFor(doc)
+  const comments: PublicationComment[] = []
+
+  for (let i = 0; i < total; i++) {
+    const seed = `${doc.id}-comment-${i}`
+    const sentiment = pickSentimentLabel(bias, seed)
+    const pool = REPLY_TEMPLATES[sentiment]
+    const templateIndex = Math.floor(seededRandom(`${seed}-t`) * pool.length)
+    comments.push({
+      id: `${doc.id}-c${i}`,
+      text: pool[templateIndex].replace('{topic}', topicLabel.toLowerCase()),
+      sentiment,
+      votes: Math.round(seededRandom(`${seed}-v`) * 500),
+      hoursAgo: 1 + Math.floor(seededRandom(`${seed}-h`) * 71),
+    })
+  }
+
+  return comments
 }
 
 export const MOCK_SERIES = generateSeries()

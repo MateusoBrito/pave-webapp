@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Inbox,
   Megaphone,
+  MessageCircle,
   MessageSquare,
   MessageSquareQuote,
   Play,
@@ -17,6 +18,7 @@ import { FOCUS_RING } from '../ui/focusRing'
 import { IconTile, type IconTone } from '../ui/IconTile'
 import { TableCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
+import { CommentsPanel } from './CommentsPanel'
 
 const NETWORK_ICON: Record<string, LucideIcon> = {
   youtube: Play,
@@ -48,9 +50,9 @@ interface Props {
 }
 
 /** "Exemplos do que foi dito" do drill-down de tópico — carrossel paginado de 3 em 3,
- * com borda colorida por sentimento (distinto do ExamplePostsList em lista, usado em
- * PostsPage). Título/subtítulo/ícone são configuráveis: "O que os usuários comentam?"
- * reaproveita este mesmo componente por rede (Reddit/YouTube), só trocando o texto. */
+ * com borda colorida por sentimento. Título/subtítulo/ícone são configuráveis: "O que
+ * os usuários comentam?" reaproveita este mesmo componente por rede (Reddit/YouTube),
+ * só trocando o texto. Cada card abre a thread inteira de comentários (CommentsPanel). */
 export function TopicExamplePosts({
   documents,
   loading,
@@ -63,6 +65,7 @@ export function TopicExamplePosts({
 }: Props) {
   const { clearFilters } = useFilters()
   const [page, setPage] = useState(0)
+  const [openDocumentId, setOpenDocumentId] = useState<string | null>(null)
   const isEmpty = !loading && !error && documents.length === 0
   const pageCount = Math.max(1, Math.ceil(documents.length / PAGE_SIZE))
 
@@ -181,11 +184,24 @@ export function TopicExamplePosts({
                 <p className="text-xs leading-relaxed text-[var(--text-primary)]">
                   &ldquo;{doc.text}&rdquo;
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setOpenDocumentId(doc.id)}
+                  className={`mt-auto flex w-fit items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-[var(--color-primary-dark)] transition-colors hover:bg-black/5 ${FOCUS_RING}`}
+                >
+                  <MessageCircle size={12} />
+                  Ver comentários
+                </button>
               </div>
             )
           })}
         </div>
       )}
+
+      <CommentsPanel
+        documentId={openDocumentId}
+        onClose={() => setOpenDocumentId(null)}
+      />
     </section>
   )
 }
