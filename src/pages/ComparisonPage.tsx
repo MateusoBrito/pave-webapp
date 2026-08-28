@@ -9,7 +9,11 @@ import { ComparisonPanel } from '../components/dashboard/ComparisonPanel'
 import { NegativeSentimentOverTimeChart } from '../components/dashboard/NegativeSentimentOverTimeChart'
 import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
 import { ComparisonEntityPicker } from '../components/filters/ComparisonEntityPicker'
-import { DEFAULT_SINGLE_NETWORK } from '../components/filters/NetworkChipFilter'
+import {
+  DEFAULT_SINGLE_NETWORK,
+  NetworkChipFilter,
+} from '../components/filters/NetworkChipFilter'
+import { PeriodFilterCard } from '../components/filters/PeriodFilterCard'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
@@ -103,6 +107,15 @@ export function ComparisonPage() {
         onChangeB={setEntityBId}
         onEntitiesChanged={refetchEntities}
       />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <PeriodFilterCard />
+        <NetworkChipFilter
+          singleSelect
+          title="Em qual rede?"
+          note="Uma rede por vez — as métricas não somam entre redes. Em Meta Ads não há sentimento."
+        />
+      </div>
 
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ComparisonPanel

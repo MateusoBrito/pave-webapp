@@ -42,20 +42,9 @@ export function FilterBar() {
     )
   }
 
-  if (isComparison) {
-    return (
-      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <PeriodFilterCard />
-          <NetworkChipFilter
-            singleSelect
-            title="Em qual rede?"
-            note="Uma rede por vez — as métricas não somam entre redes. Em Meta Ads não há sentimento."
-          />
-        </div>
-      </div>
-    )
-  }
+  // comparativo tem sua própria ordem (seletor de candidatos antes do período/rede,
+  // conforme Figma) — os filtros são renderizados dentro de ComparisonPage
+  if (isComparison) return null
 
   return (
     <div className="px-4 pt-4 sm:px-6 sm:pt-6">
