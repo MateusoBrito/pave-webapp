@@ -19,17 +19,10 @@ export function FilterBar() {
   // metodologia é conteúdo estático — não filtra por candidato, período ou rede
   if (isMethodology) return null
 
-  // anúncios são sempre Meta Ads — o filtro de rede não se aplica aqui
-  if (isPosts) {
-    return (
-      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <CandidateAvatarFilter />
-          <PeriodFilterCard />
-        </div>
-      </div>
-    )
-  }
+  // anúncios são sempre Meta Ads — o filtro de rede global não se aplica aqui; a tela
+  // tem o próprio filtro de plataforma (Facebook/Instagram), que é local à página,
+  // não ao FiltersContext (só existe dentro de Meta Ads) — ver PostsPage
+  if (isPosts) return null
 
   // "O que os usuários comentam?" é sempre uma rede por vez (Reddit ou YouTube) — Meta
   // Ads não entra: é conteúdo do candidato, não do público (ver PostsPage)

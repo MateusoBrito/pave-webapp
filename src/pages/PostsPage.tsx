@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Eye, Info, Megaphone, Wallet } from 'lucide-react'
 import {
   getAdCandidateBreakdown,
@@ -13,21 +14,26 @@ import { AdExamplesCarousel } from '../components/dashboard/AdExamplesCarousel'
 import { AdTopicRankingList } from '../components/dashboard/AdTopicRankingList'
 import { KpiCard } from '../components/dashboard/KpiCard'
 import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
+import { CandidateAvatarFilter } from '../components/filters/CandidateAvatarFilter'
+import { MetaPlatformFilter } from '../components/filters/MetaPlatformFilter'
+import { PeriodFilterCard } from '../components/filters/PeriodFilterCard'
 import { IconTile } from '../components/ui/IconTile'
 import { KpiCardSkeleton } from '../components/ui/skeletons'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
 import { formatBRLRange } from '../lib/format'
+import type { MetaAdPlatform } from '../types'
 
 export function PostsPage() {
   const { candidateIds, period } = useFilters()
+  const [platforms, setPlatforms] = useState<MetaAdPlatform[]>([])
   usePageHeader(
     'O que os candidatos postam?',
     'Anúncios pagos publicados pelos próprios candidatos, via Meta Ad Library',
   )
 
-  const deps = [candidateIds.join(','), period.from, period.to]
+  const deps = [candidateIds.join(','), period.from, period.to, platforms.join(',')]
 
   const { data: entities = [] } = useAsync(() => getEntities(), [])
   const { data: topics = [] } = useAsync(() => getTopics(), [])
@@ -41,7 +47,7 @@ export function PostsPage() {
     loading: summaryLoading,
     error: summaryError,
     refetch: refetchSummary,
-  } = useAsync(() => getCandidateContentSummary(candidateIds, period), deps)
+  } = useAsync(() => getCandidateContentSummary(candidateIds, period, platforms), deps)
   const {
     data: volume = [],
     loading: volumeLoading,
@@ -53,22 +59,28 @@ export function PostsPage() {
     loading: rankingLoading,
     error: rankingError,
     refetch: refetchRanking,
-  } = useAsync(() => getAdTopicRanking(candidateIds, period), deps)
+  } = useAsync(() => getAdTopicRanking(candidateIds, period, platforms), deps)
   const {
     data: breakdown = [],
     loading: breakdownLoading,
     error: breakdownError,
     refetch: refetchBreakdown,
-  } = useAsync(() => getAdCandidateBreakdown(candidateIds, period), deps)
+  } = useAsync(() => getAdCandidateBreakdown(candidateIds, period, platforms), deps)
   const {
     data: documents = [],
     loading: documentsLoading,
     error: documentsError,
     refetch: refetchDocuments,
-  } = useAsync(() => getCandidatePosts(candidateIds, period), deps)
+  } = useAsync(() => getCandidatePosts(candidateIds, period, platforms), deps)
 
   return (
     <>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <CandidateAvatarFilter />
+        <PeriodFilterCard />
+        <MetaPlatformFilter value={platforms} onChange={setPlatforms} />
+      </div>
+
       <div className="flex items-center gap-[11px] rounded-[14px] border border-[var(--baseline)] bg-[var(--tint-blue)] px-[18px] py-[13px]">
         <IconTile icon={Info} tone="blue" size={30} />
         <p className="flex-1 text-[11px] leading-relaxed text-[var(--tint-text-blue)]">

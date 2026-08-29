@@ -1,6 +1,7 @@
 import { NETWORKS } from '../types'
 import type {
   Entity,
+  MetaAdPlatform,
   Network,
   PublicationComment,
   SentimentLabel,
@@ -601,24 +602,38 @@ export function getTopicDocuments(
 export function getCandidatePosts(
   entityIds: string[],
   period?: PeriodFilter,
+  platforms: MetaAdPlatform[] = [],
 ): Promise<TopicDocument[]> {
   return delay(
     MOCK_DOCUMENTS.filter(
       (d) =>
         d.network === 'meta_ads' &&
         (entityIds.length === 0 || entityIds.includes(d.entityId)) &&
-        (!period || inPeriod(d.publishedAt.slice(0, 10), period)),
+        (!period || inPeriod(d.publishedAt.slice(0, 10), period)) &&
+        matchesPlatforms(d, platforms),
     ).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)),
   )
 }
 
-function metaAdsDocs(entityIds: string[], period: PeriodFilter): TopicDocument[] {
+/** [] = todas as plataformas (Facebook e Instagram) — mesmo contrato "vazio = todos"
+ * usado no resto do filtro de rede/candidato. */
+function matchesPlatforms(doc: TopicDocument, platforms: MetaAdPlatform[]): boolean {
+  if (platforms.length === 0) return true
+  return doc.ad?.platforms.some((p) => platforms.includes(p)) ?? false
+}
+
+function metaAdsDocs(
+  entityIds: string[],
+  period: PeriodFilter,
+  platforms: MetaAdPlatform[] = [],
+): TopicDocument[] {
   return MOCK_DOCUMENTS.filter(
     (d) =>
       d.network === 'meta_ads' &&
       d.ad !== undefined &&
       (entityIds.length === 0 || entityIds.includes(d.entityId)) &&
-      inPeriod(d.publishedAt.slice(0, 10), period),
+      inPeriod(d.publishedAt.slice(0, 10), period) &&
+      matchesPlatforms(d, platforms),
   )
 }
 
@@ -643,8 +658,9 @@ export interface CandidateContentSummary {
 export function getCandidateContentSummary(
   entityIds: string[],
   period: PeriodFilter,
+  platforms: MetaAdPlatform[] = [],
 ): Promise<CandidateContentSummary> {
-  const docs = metaAdsDocs(entityIds, period)
+  const docs = metaAdsDocs(entityIds, period, platforms)
   return delay({
     investmentMinBRL: docs.reduce((sum, d) => sum + (d.ad?.investmentMinBRL ?? 0), 0),
     investmentMaxBRL: docs.reduce((sum, d) => sum + (d.ad?.investmentMaxBRL ?? 0), 0),
@@ -666,9 +682,10 @@ export interface AdTopicRankingRow {
 export function getAdTopicRanking(
   entityIds: string[],
   period: PeriodFilter,
+  platforms: MetaAdPlatform[] = [],
   limit?: number,
 ): Promise<AdTopicRankingRow[]> {
-  const docs = metaAdsDocs(entityIds, period)
+  const docs = metaAdsDocs(entityIds, period, platforms)
   const byTopic = new Map<string, { min: number; max: number; count: number }>()
   for (const d of docs) {
     const cur = byTopic.get(d.topicId) ?? { min: 0, max: 0, count: 0 }
@@ -708,13 +725,14 @@ export interface AdCandidateBreakdownRow {
 export function getAdCandidateBreakdown(
   entityIds: string[],
   period: PeriodFilter,
+  platforms: MetaAdPlatform[] = [],
 ): Promise<AdCandidateBreakdownRow[]> {
   const allEntities = [...ENTITIES, ...getCustomEntities()]
   const relevant =
     entityIds.length > 0
       ? allEntities.filter((e) => entityIds.includes(e.id))
       : allEntities
-  const docs = metaAdsDocs([], period)
+  const docs = metaAdsDocs([], period, platforms)
 
   const rows = relevant.map((entity) => {
     const own = docs.filter((d) => d.entityId === entity.id)

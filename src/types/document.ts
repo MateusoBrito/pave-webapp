@@ -1,6 +1,8 @@
 import type { Network } from './network'
 import type { SentimentLabel } from './topic'
 
+export type MetaAdPlatform = 'facebook' | 'instagram'
+
 /** Metadados de anúncio, como a Ad Library devolve — faixas, não valores exatos
  * (ver Metodologia). Só presente quando `network === 'meta_ads'`. */
 export interface AdMetadata {
@@ -10,7 +12,7 @@ export interface AdMetadata {
   impressionsMax: number
   /** dias que o anúncio ficou/fica no ar, a partir de publishedAt */
   daysActive: number
-  platforms: ('facebook' | 'instagram')[]
+  platforms: MetaAdPlatform[]
   headline: string
   domain: string
   cta: string
