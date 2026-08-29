@@ -113,14 +113,6 @@ export function AccountModal({ open, onClose }: Props) {
             {formatAccountDate(user.metadata.creationTime)}
           </p>
         </div>
-        <div className="rounded-xl border border-[var(--baseline)] p-3.5 sm:col-span-2">
-          <p className="text-[9px] font-bold tracking-[0.7px] text-[var(--text-muted)] uppercase">
-            Último acesso
-          </p>
-          <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-            {formatAccountDate(user.metadata.lastSignInTime)}
-          </p>
-        </div>
       </div>
 
       {isPasswordAccount && (

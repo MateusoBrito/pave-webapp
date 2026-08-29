@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { ChevronDown, Plus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, ChevronDown, Plus } from 'lucide-react'
 import type { Entity } from '../../types'
 import { candidateColor } from '../../lib/colors'
-import { addCustomEntityIds } from '../../mocks'
+import { addCustomEntityIds, removeCustomEntityId } from '../../mocks'
 import { Avatar } from '../ui/Avatar'
 import { FOCUS_RING } from '../ui/focusRing'
 import { AddCandidateModal } from './AddCandidateModal'
@@ -14,38 +14,105 @@ interface SelectorProps {
   onChange: (id: string) => void
 }
 
+/** Combobox custom (não um `<select>` nativo) pra poder mostrar foto/cor de cada
+ * candidato na lista — um `<option>` nativo não aceita HTML rico. */
 function EntitySelector({ tag, entity, entities, onChange }: SelectorProps) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
   const color = entity ? candidateColor(entity.id) : 'var(--baseline)'
+
+  useEffect(() => {
+    if (!open) return
+    function handlePointerDown(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
   return (
-    <div
-      className={`relative flex w-full max-w-[330px] items-center gap-2.5 rounded-xl border-[1.5px] bg-white py-2.5 pr-3.5 pl-2.5 ${FOCUS_RING}`}
-      style={{ borderColor: color }}
-    >
-      <span
-        className="flex shrink-0 items-center justify-center rounded-md px-2 py-1 text-[9px] font-bold text-white"
-        style={{ backgroundColor: color }}
-      >
-        {tag}
-      </span>
-      {entity && (
-        <Avatar name={entity.name} color={color} size={26} photoUrl={entity.photoUrl} />
-      )}
-      <span className="flex-1 truncate text-[13px] font-bold text-[var(--text-primary)]">
-        {entity?.name ?? 'Selecionar candidato'}
-      </span>
-      <ChevronDown size={14} className="shrink-0 text-[var(--text-muted)]" />
-      <select
-        value={entity?.id ?? ''}
-        onChange={(event) => onChange(event.target.value)}
+    <div ref={containerRef} className="relative w-full max-w-[330px]">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         aria-label={`Candidato ${tag}`}
-        className="absolute inset-0 h-full w-full cursor-pointer appearance-none opacity-0"
+        className={`flex w-full items-center gap-2.5 rounded-xl border-[1.5px] bg-white py-2.5 pr-3.5 pl-2.5 transition-colors ${FOCUS_RING}`}
+        style={{ borderColor: color }}
       >
-        {entities.map((e) => (
-          <option key={e.id} value={e.id}>
-            {e.name}
-          </option>
-        ))}
-      </select>
+        <span
+          className="flex shrink-0 items-center justify-center rounded-md px-2 py-1 text-[9px] font-bold text-white"
+          style={{ backgroundColor: color }}
+        >
+          {tag}
+        </span>
+        {entity && (
+          <Avatar name={entity.name} color={color} size={26} photoUrl={entity.photoUrl} />
+        )}
+        <span className="flex-1 truncate text-left text-[13px] font-bold text-[var(--text-primary)]">
+          {entity?.name ?? 'Selecionar candidato'}
+        </span>
+        <ChevronDown
+          size={14}
+          className={`shrink-0 text-[var(--text-muted)] transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label={`Escolher candidato ${tag}`}
+          className="absolute top-[calc(100%+6px)] left-0 z-20 flex max-h-72 w-full min-w-[260px] flex-col gap-1 overflow-y-auto rounded-xl bg-white p-1.5"
+          style={{ boxShadow: 'var(--modal-shadow)' }}
+        >
+          {entities.map((e) => {
+            const optionColor = candidateColor(e.id)
+            const selected = e.id === entity?.id
+            return (
+              <button
+                key={e.id}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => {
+                  onChange(e.id)
+                  setOpen(false)
+                }}
+                className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${FOCUS_RING} ${
+                  selected ? 'bg-[var(--tint-primary)]' : 'hover:bg-black/[0.03]'
+                }`}
+              >
+                <Avatar
+                  name={e.name}
+                  color={optionColor}
+                  size={28}
+                  photoUrl={e.photoUrl}
+                />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--text-primary)]">
+                  {e.name}
+                </span>
+                {selected && (
+                  <Check
+                    size={14}
+                    strokeWidth={2.5}
+                    className="shrink-0 text-[var(--color-primary)]"
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -78,6 +145,11 @@ export function ComparisonEntityPicker({
     onEntitiesChanged()
   }
 
+  function handleRemoveCandidate(id: string) {
+    removeCustomEntityId(id)
+    onEntitiesChanged()
+  }
+
   return (
     <div
       className="flex flex-wrap items-center gap-4 rounded-2xl bg-white p-4"
@@ -101,6 +173,7 @@ export function ComparisonEntityPicker({
         onClose={() => setModalOpen(false)}
         trackedIds={entities.map((e) => e.id)}
         onConfirm={handleAddCandidates}
+        onRemove={handleRemoveCandidate}
       />
     </div>
   )

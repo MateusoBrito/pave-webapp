@@ -47,3 +47,11 @@ export function addCustomEntityIds(ids: string[]): void {
   customEntityIds = Array.from(new Set([...customEntityIds, ...ids]))
   writeStoredIds(customEntityIds)
 }
+
+/** Tira um candidato adicionado nesta sessão do acompanhamento — só se aplica a
+ * quem entrou pelo "Adicionar candidato"; Lula e Flávio (registro fixo) não passam
+ * por aqui. */
+export function removeCustomEntityId(id: string): void {
+  customEntityIds = customEntityIds.filter((existing) => existing !== id)
+  writeStoredIds(customEntityIds)
+}

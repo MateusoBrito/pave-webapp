@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Check, Plus, Search, User, X } from 'lucide-react'
+import { Check, Plus, Search, Trash2, User, X } from 'lucide-react'
+import { ENTITIES } from '../../mocks'
 import { CANDIDATE_REGISTRY } from '../../mocks/candidateRegistry'
 import { Button } from '../ui/Button'
 import { FOCUS_RING } from '../ui/focusRing'
@@ -9,14 +10,22 @@ import { Modal } from '../ui/Modal'
 interface Props {
   open: boolean
   onClose: () => void
-  /** ids já monitorados hoje — ficam com o rótulo "Já monitorado", não podem ser adicionados de novo */
   trackedIds: string[]
   onConfirm: (ids: string[]) => void
+  /** tira um candidato do acompanhamento — só chamado pra quem não é do registro fixo
+   * (ver isCore abaixo); Lula e Flávio nunca aparecem removíveis aqui. */
+  onRemove: (id: string) => void
 }
 
-/** Modal "Adicionar candidato" — busca no registro de entidades cadastradas e permite
- * marcar uma ou mais para entrar no acompanhamento (filtro global + comparativo). */
-export function AddCandidateModal({ open, onClose, trackedIds, onConfirm }: Props) {
+const CORE_IDS = new Set(ENTITIES.map((e) => e.id))
+
+export function AddCandidateModal({
+  open,
+  onClose,
+  trackedIds,
+  onConfirm,
+  onRemove,
+}: Props) {
   const [query, setQuery] = useState('')
   const [staged, setStaged] = useState<string[]>([])
 
@@ -89,6 +98,7 @@ export function AddCandidateModal({ open, onClose, trackedIds, onConfirm }: Prop
         ) : (
           results.map((candidate) => {
             const monitored = trackedIds.includes(candidate.id)
+            const isCore = CORE_IDS.has(candidate.id)
             const isStaged = staged.includes(candidate.id)
             return (
               <div
@@ -116,11 +126,20 @@ export function AddCandidateModal({ open, onClose, trackedIds, onConfirm }: Prop
                     </p>
                   </div>
                 </div>
-                {monitored ? (
+                {monitored && isCore ? (
                   <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--tint-graphite)] px-3.5 py-2 text-sm font-medium text-[var(--text-secondary)]">
                     <Check size={16} strokeWidth={2.5} />
                     Já monitorado
                   </span>
+                ) : monitored ? (
+                  <button
+                    type="button"
+                    onClick={() => onRemove(candidate.id)}
+                    className={`flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--tint-coral)] px-3.5 py-2 text-sm font-medium text-[var(--tint-text-coral)] transition-colors hover:brightness-95 ${FOCUS_RING}`}
+                  >
+                    <Trash2 size={16} strokeWidth={2.5} />
+                    Remover
+                  </button>
                 ) : (
                   <button
                     type="button"
