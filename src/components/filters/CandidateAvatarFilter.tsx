@@ -4,7 +4,7 @@ import { getEntities } from '../../api/client'
 import { useFilters } from '../../context/FiltersContext'
 import { useAsync } from '../../hooks'
 import { candidateColor } from '../../lib/colors'
-import { addCustomEntityIds, removeCustomEntityId } from '../../mocks'
+import { addTrackedEntityIds, removeTrackedEntityId } from '../../lib/trackedEntities'
 import { Avatar } from '../ui/Avatar'
 import { FOCUS_RING } from '../ui/focusRing'
 import { AddCandidateModal } from './AddCandidateModal'
@@ -21,12 +21,12 @@ export function CandidateAvatarFilter() {
   const [modalOpen, setModalOpen] = useState(false)
 
   function handleAddCandidates(ids: string[]) {
-    addCustomEntityIds(ids)
+    addTrackedEntityIds(ids)
     refetch()
   }
 
   function handleRemoveCandidate(id: string) {
-    removeCustomEntityId(id)
+    removeTrackedEntityId(id)
     if (candidateIds.includes(id)) setCandidateIds(candidateIds.filter((v) => v !== id))
     refetch()
   }

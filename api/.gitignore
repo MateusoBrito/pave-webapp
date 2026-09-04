@@ -1,0 +1,9 @@
+__pycache__/
+.venv/
+.env
+.pytest_cache/
+
+# dependências e artefatos gerados dos testes
+tests/pgtest/node_modules/
+tests/fixtures/schema.sql
+tests/fixtures/documentos.sql

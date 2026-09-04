@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Plus } from 'lucide-react'
 import type { Entity } from '../../types'
 import { candidateColor } from '../../lib/colors'
-import { addCustomEntityIds, removeCustomEntityId } from '../../mocks'
+import { addTrackedEntityIds, removeTrackedEntityId } from '../../lib/trackedEntities'
 import { Avatar } from '../ui/Avatar'
 import { FOCUS_RING } from '../ui/focusRing'
 import { AddCandidateModal } from './AddCandidateModal'
@@ -141,12 +141,12 @@ export function ComparisonEntityPicker({
   const entityB = entities.find((e) => e.id === bId)
 
   function handleAddCandidates(ids: string[]) {
-    addCustomEntityIds(ids)
+    addTrackedEntityIds(ids)
     onEntitiesChanged()
   }
 
   function handleRemoveCandidate(id: string) {
-    removeCustomEntityId(id)
+    removeTrackedEntityId(id)
     onEntitiesChanged()
   }
 

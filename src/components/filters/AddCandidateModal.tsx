@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Check, Plus, Search, Trash2, User, X } from 'lucide-react'
-import { ENTITIES } from '../../mocks'
-import { CANDIDATE_REGISTRY } from '../../mocks/candidateRegistry'
+import { getCandidateRegistry } from '../../api/client'
+import { useAsync } from '../../hooks'
 import { Button } from '../ui/Button'
 import { FOCUS_RING } from '../ui/focusRing'
 import { IconTile } from '../ui/IconTile'
@@ -17,8 +17,6 @@ interface Props {
   onRemove: (id: string) => void
 }
 
-const CORE_IDS = new Set(ENTITIES.map((e) => e.id))
-
 export function AddCandidateModal({
   open,
   onClose,
@@ -29,11 +27,16 @@ export function AddCandidateModal({
   const [query, setQuery] = useState('')
   const [staged, setStaged] = useState<string[]>([])
 
+  const { data: registry = [] } = useAsync(
+    () => (open ? getCandidateRegistry() : Promise.resolve([])),
+    [open],
+  )
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return CANDIDATE_REGISTRY
-    return CANDIDATE_REGISTRY.filter((c) => c.name.toLowerCase().includes(q))
-  }, [query])
+    if (!q) return registry
+    return registry.filter((c) => c.name.toLowerCase().includes(q))
+  }, [query, registry])
 
   function reset() {
     setQuery('')
@@ -98,7 +101,7 @@ export function AddCandidateModal({
         ) : (
           results.map((candidate) => {
             const monitored = trackedIds.includes(candidate.id)
-            const isCore = CORE_IDS.has(candidate.id)
+            const isCore = candidate.monitorada
             const isStaged = staged.includes(candidate.id)
             return (
               <div

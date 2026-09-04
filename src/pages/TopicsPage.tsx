@@ -44,9 +44,11 @@ const SCOPE_NOTE: Record<UserNetwork, { text: string; bg: string; text_color: st
 
 export function TopicsPage() {
   const { candidateIds, networks, period } = useFilters()
-  const network = (
-    networks.length > 0 ? networks[0] : DEFAULT_SINGLE_NETWORK
-  ) as UserNetwork
+  const selected = networks[0]
+  const network: UserNetwork =
+    selected === 'reddit' || selected === 'youtube'
+      ? selected
+      : (DEFAULT_SINGLE_NETWORK as UserNetwork)
   const scopeNote = SCOPE_NOTE[network]
 
   usePageHeader(
