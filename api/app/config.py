@@ -15,6 +15,8 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    fotos_dir: str = ""
+
     firebase_credentials_file: str = ""
     auth_disabled: bool = False
 

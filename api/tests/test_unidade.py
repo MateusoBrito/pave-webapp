@@ -227,3 +227,17 @@ class TestAnonimizacao:
 
     def test_sem_autor_usa_o_id_do_documento(self):
         assert pseudonymize(None, 42).startswith("user_")
+
+
+def test_fotos_dir_usa_a_variavel_quando_definida(tmp_path):
+    from app.config import Settings
+    from app.main import fotos_dir
+
+    assert fotos_dir(Settings(fotos_dir=str(tmp_path))) == tmp_path
+
+
+def test_fotos_dir_devolve_none_quando_o_caminho_nao_existe(tmp_path):
+    from app.config import Settings
+    from app.main import fotos_dir
+
+    assert fotos_dir(Settings(fotos_dir=str(tmp_path / "nao-existe"))) is None

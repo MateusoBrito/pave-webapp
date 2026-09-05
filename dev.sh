@@ -1,19 +1,3 @@
-#!/usr/bin/env bash
-#
-# Sobe o ambiente de desenvolvimento inteiro, na ordem certa:
-#
-#   1. Postgres (docker compose do pave-pipeline)
-#   2. Diagnóstico — diz quais telas terão dados antes de você abrir o navegador
-#   3. API (FastAPI)
-#   4. Front (Vite)
-#
-# Ctrl+C derruba API e front. O Postgres fica de pé (é container); use --parar.
-#
-#   ./dev.sh                    sobe tudo
-#   ./dev.sh --sem-banco        não mexe no Docker (Postgres já rodando)
-#   ./dev.sh --sem-diagnostico  pula a checagem de dados
-#   ./dev.sh --parar            derruba tudo, inclusive o Postgres
-#
 set -euo pipefail
 
 FRONT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

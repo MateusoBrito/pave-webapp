@@ -3,15 +3,17 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .auth import init_firebase
-from .config import get_settings
+from .config import Settings, get_settings
 from .db import dispose_engine, get_session, init_engine
 from .routers import ads, catalog, comparison, network_documents, series, topics
 
@@ -69,6 +71,33 @@ async def ready(session: AsyncSession = Depends(get_session)) -> dict[str, str]:
         ) from err
     return {"status": "ready"}
 
+
+def fotos_dir(settings: Settings) -> Path | None:
+    """Diretório das fotos das entidades, ou None se não estiver no lugar.
+
+    Servido sem autenticação: um `<img>` não manda cabeçalho Authorization, então
+    exigir token aqui deixaria toda foto quebrada.
+
+    `entidade.foto` guarda `/fotos/lula.jpg` — caminho relativo à API, escrito por
+    `pipelines/etl/atualiza_fotos.py`, que lê os arquivos de `data/fotos` no
+    pave-pipeline. O padrão aponta para lá, assumindo os dois repositórios lado a
+    lado; `PAVE_FOTOS_DIR` cobre qualquer outro arranjo.
+    """
+    if settings.fotos_dir:
+        caminho = Path(settings.fotos_dir).expanduser()
+    else:
+        caminho = Path(__file__).resolve().parents[2].parent / "pave-pipeline" / "data" / "fotos"
+    return caminho if caminho.is_dir() else None
+
+
+_fotos = fotos_dir(get_settings())
+if _fotos is None:
+    logger.warning(
+        "Diretório de fotos não encontrado — avatares vão cair para as iniciais. "
+        "Aponte PAVE_FOTOS_DIR para o data/fotos do pave-pipeline."
+    )
+else:
+    app.mount("/fotos", StaticFiles(directory=_fotos), name="fotos")
 
 app.include_router(catalog.router)
 app.include_router(series.router)

@@ -40,19 +40,20 @@ export function CandidateAvatarFilter() {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-4">
+    <div className="min-w-0 rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-4">
       <p className="mb-3 text-sm font-semibold text-[var(--text-primary)]">
         Quem queremos acompanhar?
       </p>
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-3">
         {entities.map((entity) => {
           const selected = candidateIds.length === 0 || candidateIds.includes(entity.id)
           return (
             <button
               key={entity.id}
               type="button"
+              title={entity.name}
               onClick={() => toggle(entity.id)}
-              className={`flex flex-col items-center gap-1.5 rounded-xl p-1 text-xs ${FOCUS_RING}`}
+              className={`flex w-[60px] shrink-0 flex-col items-center gap-1.5 rounded-xl p-1 text-xs ${FOCUS_RING}`}
             >
               <Avatar
                 name={entity.name}
@@ -61,7 +62,7 @@ export function CandidateAvatarFilter() {
                 size={44}
                 photoUrl={entity.photoUrl}
               />
-              <span className="text-[var(--text-secondary)]">
+              <span className="w-full truncate text-center text-[var(--text-secondary)]">
                 {shortName(entity.name)}
               </span>
             </button>
@@ -70,10 +71,12 @@ export function CandidateAvatarFilter() {
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className={`flex flex-col items-center gap-1.5 rounded-xl p-1 text-xs ${FOCUS_RING}`}
+          className={`flex w-[60px] shrink-0 flex-col items-center gap-1.5 rounded-xl p-1 text-xs ${FOCUS_RING}`}
         >
           <Avatar name="Outros" color="" muted icon={User} size={44} />
-          <span className="text-[var(--text-muted)]">Outros</span>
+          <span className="w-full truncate text-center text-[var(--text-muted)]">
+            Outros
+          </span>
         </button>
       </div>
       <AddCandidateModal

@@ -4,6 +4,24 @@ import type { PeriodFilter } from './client'
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
+export function mediaUrl(path: string): string {
+  if (/^(https?:|data:|blob:)/.test(path)) return path
+  return `${BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+function resolveMedia<T>(value: T): T {
+  if (Array.isArray(value)) {
+    for (const item of value) resolveMedia(item)
+  } else if (value !== null && typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    for (const [chave, bruto] of Object.entries(obj)) {
+      if (chave === 'photoUrl' && typeof bruto === 'string') obj[chave] = mediaUrl(bruto)
+      else resolveMedia(bruto)
+    }
+  }
+  return value
+}
+
 export class ApiError extends Error {
   status: number
 
@@ -68,7 +86,7 @@ export async function apiGet<T>(path: string, params: Record<string, unknown> = 
     throw new ApiError(detail || String(response.status), response.status)
   }
 
-  return (await response.json()) as T
+  return resolveMedia((await response.json()) as T)
 }
 
 export async function apiGetOptional<T>(
