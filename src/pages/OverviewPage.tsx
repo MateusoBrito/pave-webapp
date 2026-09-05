@@ -1,7 +1,7 @@
 import {
   AlertTriangle,
   ArrowUpRight,
-  Calendar,
+  Flame,
   MessageSquare,
   Thermometer,
   TrendingUp,
@@ -29,7 +29,8 @@ import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
 import type { SentimentLabel } from '../types'
-import { formatDateRange } from '../lib/dates'
+import { peakDay } from '../lib/chartData'
+import { formatDateRange, formatShortDate } from '../lib/dates'
 import { formatCompactNumber, formatPercent, formatSignedPercent } from '../lib/format'
 
 const SENTIMENT_LABEL: Record<SentimentLabel, string> = {
@@ -46,6 +47,7 @@ const HIGHLIGHT_STYLE: Record<string, { icon: LucideIcon; tone: IconTone }> = {
   top_topic: { icon: TrendingUp, tone: 'purple' },
   network_growth: { icon: ArrowUpRight, tone: 'green' },
 }
+
 
 export function OverviewPage() {
   const { candidateIds, networks, period } = useFilters()
@@ -102,26 +104,33 @@ export function OverviewPage() {
     ? sentiment.negative + sentiment.neutral + sentiment.positive || 1
     : 1
   const predominant = summary?.predominantSentiment ?? 'neutral'
+  const peak = peakDay(volume, (p) => p.mentions)
 
   return (
     <>
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {summaryError ? (
+        {summaryError || volumeError ? (
           <div className="sm:col-span-3">
             <StatusCard
               icon={AlertTriangle}
               tone="coral"
               title="Não foi possível carregar"
               description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
-              primaryAction={{ label: 'Tentar novamente', onClick: refetchSummary }}
+              primaryAction={{
+                label: 'Tentar novamente',
+                onClick: () => {
+                  refetchSummary()
+                  refetchVolume()
+                },
+              }}
               secondaryAction={{
-                label: `Copiar código do erro · ${summaryError.message || '500'}`,
+                label: `Copiar código do erro · ${(summaryError || volumeError)?.message || '500'}`,
                 onClick: () =>
-                  navigator.clipboard?.writeText(summaryError.message || '500'),
+                  navigator.clipboard?.writeText((summaryError || volumeError)?.message || '500'),
               }}
             />
           </div>
-        ) : summaryLoading || !summary ? (
+        ) : summaryLoading || !summary || volumeLoading ? (
           <>
             <KpiCardSkeleton />
             <KpiCardSkeleton />
@@ -142,16 +151,9 @@ export function OverviewPage() {
               }
             />
             <KpiCard
-              icon={Calendar}
-              tone="green"
-              label="Cobertura da coleta"
-              value={`${summary.daysCovered}/${summary.totalDays} dias`}
-              subtext={`${summary.totalNetworks} plataformas`}
-            />
-            <KpiCard
               icon={Thermometer}
               tone={SENTIMENT_TONE[predominant]}
-              label="Clima do debate"
+              label="Sentimento do público"
               value={SENTIMENT_LABEL[predominant]}
               subtext={
                 sentiment
@@ -161,6 +163,13 @@ export function OverviewPage() {
                   : undefined
               }
               subtextSecondary="Soma de Reddit e YouTube · anúncios da Meta não entram"
+            />
+            <KpiCard
+              icon={Flame}
+              tone="amber"
+              label="Pico de menções"
+              value={peak ? formatCompactNumber(peak.total) : '—'}
+              subtext={peak ? `em ${formatShortDate(peak.date)}` : 'sem dados no período'}
             />
           </>
         )}

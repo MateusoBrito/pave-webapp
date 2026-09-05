@@ -65,9 +65,12 @@ export function AdTopicRankingList({ rows, loading, error, refetch }: Props) {
           <ol className="flex flex-col gap-2.5">
             {rows.map((row, index) => (
               <li key={row.topic.id}>
+                {/* /anuncios/:id (AdTopicDrilldownPage), não /topicos/:id - aquele é
+                    hard-restrito a redes orgânicas e todo tópico aqui é escopo meta_ads
+                    (_ads_filter em documents.py), então nunca resolveria. */}
                 <button
                   type="button"
-                  onClick={() => navigate(`/topicos/${row.topic.id}`)}
+                  onClick={() => navigate(`/anuncios/${row.topic.id}`)}
                   className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left hover:bg-black/5"
                 >
                   <span className="w-4 shrink-0 text-xs text-[var(--text-muted)]">

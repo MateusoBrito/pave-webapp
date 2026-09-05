@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import type { TooltipContentProps } from 'recharts'
 import type { NetworkMentions } from '../../api/client'
 import { NETWORKS } from '../../types'
 import type { Entity } from '../../types'
@@ -18,7 +19,6 @@ import { formatCompactNumber } from '../../lib/format'
 import { IconTile } from '../ui/IconTile'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
-import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
   entities: Entity[]
@@ -49,14 +49,56 @@ export function MentionsByNetworkChart({
   const { setDays, clearFilters } = useFilters()
   const isEmpty = !loading && !error && data.every((d) => d.mentions === 0)
 
+  // Bars are 100%-stacked (each row's segments sum to 100) so a network dominated by one
+  // source (YouTube dwarfing Reddit/Meta Ads in absolute terms) doesn't flatten the others
+  // into invisibility - the absolute total still shows via renderTotalLabel above each bar.
   const rows = data.map((d) => {
     const row: Record<string, number | string> = {
       label: NETWORKS.find((n) => n.id === d.network)?.label ?? d.network,
       total: d.mentions,
     }
-    for (const e of d.byEntity) row[e.entityId] = e.mentions
+    for (const e of d.byEntity) {
+      row[e.entityId] = d.mentions > 0 ? (e.mentions / d.mentions) * 100 : 0
+      row[`${e.entityId}_abs`] = e.mentions
+    }
     return row
   })
+
+  // Custom instead of the shared ChartTooltip: that one formats `label` as a date
+  // (formatShortDate), but this chart's x-axis is network names, not dates. Also shows the
+  // absolute mention count alongside the now-normalized percentage, since the bar segment
+  // itself no longer carries that number visually.
+  function renderTooltip({ active, payload, label }: TooltipContentProps) {
+    if (!active || !payload || payload.length === 0) return null
+    return (
+      <div className="rounded-lg border border-[var(--baseline)] bg-[var(--chart-surface)] px-3 py-2 shadow-lg">
+        <p className="mb-1 text-xs text-[var(--text-muted)]">{String(label)}</p>
+        <dl className="space-y-1">
+          {payload
+            .filter((entry) => entry.value !== undefined)
+            .map((entry) => {
+              const rowData = entry.payload as Record<string, number> | undefined
+              const abs = Number(rowData?.[`${entry.dataKey}_abs`] ?? 0)
+              return (
+                <div
+                  key={String(entry.dataKey)}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: String(entry.color) }}
+                  />
+                  <dd className="font-semibold text-[var(--text-primary)]">
+                    {Math.round(Number(entry.value))}% · {formatCompactNumber(abs)}
+                  </dd>
+                  <dt className="text-[var(--text-secondary)]">{entry.name}</dt>
+                </div>
+              )
+            })}
+        </dl>
+      </div>
+    )
+  }
 
   function renderPercentLabel({ x, y, width, height, value, index }: SegmentLabelProps) {
     if (
@@ -71,10 +113,8 @@ export function MentionsByNetworkChart({
     const ny = Number(y)
     const nw = Number(width)
     const nh = Number(height)
-    const total = Number(rows[index]?.total ?? 0)
-    const segment = Number(value ?? 0)
-    if (total === 0 || segment === 0 || nh < 20) return null
-    const pct = Math.round((segment / total) * 100)
+    const pct = Math.round(Number(value ?? 0))
+    if (pct === 0 || nh < 20) return null
     return (
       <text
         x={nx + nw / 2}
@@ -183,16 +223,15 @@ export function MentionsByNetworkChart({
                 tickLine={false}
               />
               <YAxis
-                allowDecimals={false}
+                domain={[0, 100]}
+                ticks={[0, 25, 50, 75, 100]}
+                tickFormatter={(v) => `${v}%`}
                 tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
                 width={40}
               />
-              <Tooltip
-                content={(props) => <ChartTooltip {...props} />}
-                cursor={{ fill: 'var(--gridline)' }}
-              />
+              <Tooltip content={renderTooltip} cursor={{ fill: 'var(--gridline)' }} />
               {entities.map((entity, index) => (
                 <Bar
                   key={entity.id}

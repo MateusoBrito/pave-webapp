@@ -54,18 +54,43 @@ export function TopicsStackedChart({
   const [mode, setMode] = useState<Mode>('stacked')
   const { setDays, clearFilters } = useFilters()
 
-  const orderedTopics = useMemo(
-    () => [...topics].sort((a, b) => b.weight - a.weight),
-    [topics],
+  // featured/rest come from `series` totals, not from `topics`' weight: list_topics() has no
+  // network filter and mixes every network's vigente topic model together, so the globally
+  // heaviest-weight topics can easily belong to a network other than the one being viewed here
+  // (`series` is already scoped to it). Picking "featured" by weight meant the real per-day
+  // values for the selected network almost always fell through into "Outros" - see the bug
+  // report: every named topic tooltipped at 0, only "Outros" ever carried real mentions.
+  const topicById = useMemo(() => new Map(topics.map((t) => [t.id, t])), [topics])
+  const seriesTotals = useMemo(() => {
+    const totals = new Map<string, number>()
+    for (const p of series) totals.set(p.topicId, (totals.get(p.topicId) ?? 0) + p.mentions)
+    return totals
+  }, [series])
+  const featuredIds = useMemo(
+    () =>
+      [...seriesTotals.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, FEATURED_COUNT)
+        .map(([id]) => id),
+    [seriesTotals],
   )
-  const featured = orderedTopics.slice(0, FEATURED_COUNT)
-  const rest = orderedTopics.slice(FEATURED_COUNT)
+  const featured = useMemo(
+    () =>
+      featuredIds
+        .map((id) => topicById.get(id))
+        .filter((t): t is Topic => t !== undefined),
+    [featuredIds, topicById],
+  )
+  const restIds = useMemo(
+    () => [...seriesTotals.keys()].filter((id) => !featuredIds.includes(id)),
+    [seriesTotals, featuredIds],
+  )
   const chartSeries = useMemo(
     () => [
       ...featured,
-      ...(rest.length > 0 ? [{ id: 'outros', label: 'Outros' } as Topic] : []),
+      ...(restIds.length > 0 ? [{ id: 'outros', label: 'Outros' } as Topic] : []),
     ],
-    [featured, rest],
+    [featured, restIds],
   )
   const seriesName = (topic: Topic) => {
     const entity = entities.find((e) => e.id === topic.entityId)
@@ -80,12 +105,12 @@ export function TopicsStackedChart({
       (p) => p.mentions,
     )
     const rows =
-      rest.length === 0
+      restIds.length === 0
         ? pivoted
         : pivoted.map((row) => {
             const next: Record<string, number | string> = { date: row.date }
             for (const t of featured) next[t.id] = row[t.id] ?? 0
-            next.outros = rest.reduce((sum, t) => sum + (Number(row[t.id]) || 0), 0)
+            next.outros = restIds.reduce((sum, id) => sum + (Number(row[id]) || 0), 0)
             return next
           })
 
@@ -96,7 +121,7 @@ export function TopicsStackedChart({
       for (const t of chartSeries) next[t.id] = ((Number(row[t.id]) || 0) / total) * 100
       return next
     })
-  }, [series, featured, rest, mode, chartSeries])
+  }, [series, featured, restIds, mode, chartSeries])
 
   return (
     <section

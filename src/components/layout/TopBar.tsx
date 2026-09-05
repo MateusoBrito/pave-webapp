@@ -55,8 +55,7 @@ export function TopBar({ onMenuClick }: Props) {
             {status && (
               <span className="hidden items-center gap-1.5 rounded-full border border-[var(--baseline)] px-3 py-1 text-xs text-[var(--text-secondary)] sm:flex">
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-green)]" />
-                Última coleta: {formatFullDate(status.lastCollectionDate)} (D-
-                {status.daysBehind})
+                Última coleta: {formatFullDate(status.lastCollectionDate)}
               </span>
             )}
             <Button variant="primary" onClick={() => setExportOpen(true)}>

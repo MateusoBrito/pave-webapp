@@ -37,7 +37,7 @@ export function ShareOfVoiceChart({ entities, data, loading, error, refetch }: P
         <IconTile icon={PieIcon} tone="blue" size={36} />
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Share of voice por candidato
+            Participação por candidato
           </h2>
           <p className="text-xs text-[var(--text-muted)]">
             Participação no total de menções do período

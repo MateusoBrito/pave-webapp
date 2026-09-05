@@ -5,17 +5,20 @@ sempre `meta_ads`, porque a tela trata do que o candidato publica, não do que o
 público comenta em outra rede.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..deps import Period, entity_ids, period_params, platforms
 from ..queries import documents
+from ..queries.base import parse_topic_id
 from ..schemas.domain import MetaAdPlatform, TopicDocument
 from ..schemas.responses import (
     AdCandidateBreakdownRow,
+    AdTopicDetail,
     AdTopicRankingRow,
     CandidateContentSummary,
+    CandidateVolumePoint,
 )
 
 router = APIRouter(tags=["anúncios"])
@@ -61,3 +64,41 @@ async def content_by_candidate(
     session: AsyncSession = Depends(get_session),
 ):
     return await documents.ad_candidate_breakdown(session, period, entities, plats)
+
+
+def _split(topic_id: str) -> tuple[int, str]:
+    parsed = parse_topic_id(topic_id)
+    if parsed is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Tópico não encontrado."
+        )
+    return parsed
+
+
+@router.get("/candidates/content/topics/{topic_id}", response_model=AdTopicDetail, response_model_exclude_none=True)
+async def content_topic_detail(
+    topic_id: str,
+    plats: list[MetaAdPlatform] = Depends(platforms),
+    session: AsyncSession = Depends(get_session),
+):
+    """Drill-down próprio para tópico de anúncio - ver AdTopicDetail.
+
+    Não recebe período: `ad_topic_detail` calcula sobre a vigência do próprio tópico."""
+    topico_id, entidade = _split(topic_id)
+    resultado = await documents.ad_topic_detail(session, topic_id, topico_id, entidade, plats)
+    if resultado is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Tópico sem anúncios no período."
+        )
+    return resultado
+
+
+@router.get("/candidates/content/topics/{topic_id}/series", response_model=list[CandidateVolumePoint])
+async def content_topic_series(
+    topic_id: str,
+    period: Period = Depends(period_params),
+    plats: list[MetaAdPlatform] = Depends(platforms),
+    session: AsyncSession = Depends(get_session),
+):
+    topico_id, entidade = _split(topic_id)
+    return await documents.ad_topic_series(session, topico_id, entidade, period, plats)

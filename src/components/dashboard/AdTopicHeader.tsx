@@ -1,73 +1,35 @@
 import { AlertTriangle, Hash, Search } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import type { TopicDetail } from '../../api/client'
-import type { Entity, Network, SentimentLabel, TopicSentiment } from '../../types'
-import { sentimentColor } from '../../lib/colors'
-import { formatShortDate } from '../../lib/dates'
-import { formatPercent } from '../../lib/format'
+import type { AdTopicDetail } from '../../api/client'
+import type { Entity } from '../../types'
+import { formatBRLRange } from '../../lib/format'
 import { IconTile } from '../ui/IconTile'
 import { Skeleton } from '../ui/Skeleton'
 import { StatusCard } from '../ui/StatusCard'
 
-const SENTIMENT_LABEL: Record<string, string> = {
-  negative: 'Negativo',
-  neutral: 'Neutro',
-  positive: 'Positivo',
-}
-
-const NETWORK_LABEL: Record<Network, string> = {
-  youtube: 'YouTube',
-  reddit: 'Reddit',
-  meta_ads: 'Meta Ads',
-}
-
-function predominant(sentiment: TopicSentiment): { label: SentimentLabel; pct: number } {
-  const total = sentiment.negative + sentiment.neutral + sentiment.positive || 1
-  if (
-    sentiment.negative >= sentiment.neutral &&
-    sentiment.negative >= sentiment.positive
-  ) {
-    return { label: 'negative', pct: (sentiment.negative / total) * 100 }
-  }
-  if (sentiment.positive >= sentiment.neutral) {
-    return { label: 'positive', pct: (sentiment.positive / total) * 100 }
-  }
-  return { label: 'neutral', pct: (sentiment.neutral / total) * 100 }
-}
-
-function Indicator({
-  label,
-  value,
-  valueColor,
-}: {
-  label: string
-  value: string
-  valueColor?: string
-}) {
+function Indicator({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
       <p className="text-[9px] font-bold tracking-[0.8px] text-[var(--text-muted)] uppercase">
         {label}
       </p>
-      <p
-        className="text-[19px] font-bold text-[var(--text-primary)]"
-        style={valueColor ? { color: valueColor } : undefined}
-      >
-        {value}
-      </p>
+      <p className="text-[19px] font-bold text-[var(--text-primary)]">{value}</p>
     </div>
   )
 }
 
 interface Props {
-  detail: TopicDetail | undefined
+  detail: AdTopicDetail | undefined
   ownerEntity: Entity | undefined
   loading: boolean
   error?: Error
   refetch?: () => void
 }
 
-export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Props) {
+/** Header do drill-down de tópico de anúncio - análogo a TopicHeader.tsx, mas sem
+ * sentimento (anúncio pago não tem reação pública coletável, ver PostsPage.tsx) e com
+ * investimento/anúncios veiculados no lugar de menções/sentimento predominante. */
+export function AdTopicHeader({ detail, ownerEntity, loading, error, refetch }: Props) {
   const navigate = useNavigate()
 
   if (error) {
@@ -108,7 +70,7 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
             </div>
           </div>
           <div className="flex gap-6">
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: 2 }).map((_, i) => (
               <div key={i} className="flex flex-col gap-2">
                 <Skeleton className="h-2.5 w-14" />
                 <Skeleton className="h-5 w-14" />
@@ -126,17 +88,14 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
         icon={Search}
         tone="graphite"
         title="Tópico não encontrado"
-        description="Esse tópico pode não existir mais para o candidato selecionado."
+        description="Esse tópico pode não ter anúncios no período selecionado."
         primaryAction={{
-          label: 'Voltar para Tópicos',
-          onClick: () => navigate('/topicos'),
+          label: 'Voltar para Anúncios',
+          onClick: () => navigate('/posts'),
         }}
       />
     )
   }
-
-  const { label: sentimentLabel, pct: sentimentPct } = predominant(detail.sentiment)
-  const network = detail.dominantNetwork
 
   return (
     <section
@@ -145,15 +104,11 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
     >
       <div className="flex items-center gap-2 text-[11px]">
         <Link
-          to="/topicos"
+          to="/posts"
           className="font-semibold text-[var(--color-primary)] hover:underline"
         >
-          O que os usuários comentam?
+          O que os candidatos postam?
         </Link>
-        <span className="text-[var(--text-muted)]">/</span>
-        <span className="font-semibold text-[var(--color-primary)]">
-          {NETWORK_LABEL[network]}
-        </span>
         <span className="text-[var(--text-muted)]">/</span>
         <span className="text-[var(--text-secondary)]">
           {detail.topic.label}
@@ -163,7 +118,7 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
 
       <div className="flex flex-wrap items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <IconTile icon={Hash} tone="purple" size={52} />
+          <IconTile icon={Hash} tone="pink" size={52} />
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-bold text-[var(--text-primary)]">
               {detail.topic.label}
@@ -182,26 +137,11 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
         </div>
 
         <div className="flex flex-wrap gap-6">
-          <Indicator label="Menções" value={detail.mentions.toLocaleString('pt-BR')} />
-          <Indicator label="Participação no período" value={formatPercent(detail.sharePct)} />
-          <div className="flex flex-col gap-1">
-            <p className="text-[9px] font-bold tracking-[0.8px] text-[var(--text-muted)] uppercase">
-              Sentimento
-            </p>
-            <p
-              className="text-[19px] font-bold"
-              style={{ color: sentimentColor(sentimentLabel) }}
-            >
-              {SENTIMENT_LABEL[sentimentLabel]} {formatPercent(sentimentPct)}
-            </p>
-            <p className="text-[9px] text-[var(--text-muted)]">
-              comentários no {NETWORK_LABEL[network]}
-            </p>
-          </div>
           <Indicator
-            label="Pico de menções"
-            value={detail.peakDate ? formatShortDate(detail.peakDate) : '—'}
+            label="Investimento"
+            value={formatBRLRange(detail.investmentMinBRL, detail.investmentMaxBRL)}
           />
+          <Indicator label="Anúncios" value={detail.adsCount.toLocaleString('pt-BR')} />
         </div>
       </div>
     </section>

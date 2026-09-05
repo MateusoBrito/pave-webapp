@@ -244,7 +244,7 @@ export function CandidateTopicsModal({
                   <th className="px-1 py-2.5">Tópico</th>
                   <th className="w-32 px-1 py-2.5">Volume</th>
                   <th className="w-20 px-1 py-2.5">Menções</th>
-                  <th className="w-16 px-1 py-2.5">Share</th>
+                  <th className="w-16 px-1 py-2.5">Participação</th>
                   <th className="w-40 px-1 py-2.5">Sentimento</th>
                   <th className="w-24 px-1 py-2.5" />
                 </tr>

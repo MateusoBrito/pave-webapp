@@ -35,14 +35,17 @@ from ..schemas.domain import (
 )
 from ..schemas.responses import (
     AdCandidateBreakdownRow,
+    AdTopicDetail,
     AdTopicRankingRow,
     CandidateContentSummary,
+    CandidateVolumePoint,
 )
 from .base import (
     TIPOS_MENCAO,
     canal_label,
     compose_topic_id,
     day_bounds,
+    local_date_column,
     topic_emergent,
     topic_label,
     vigente_model_ids,
@@ -186,11 +189,12 @@ async def topic_documents(
     topico_id: int,
     entidade: str,
     networks: list[Network],
+    period: Period | None = None,
     limit: int = DEFAULT_DOCUMENT_LIMIT,
 ) -> list[TopicDocument]:
     """GET /topics/{topicId}/documents — exemplos do drill-down."""
     stmt = (
-        _document_select(None, [entidade])
+        _document_select(period, [entidade])
         .where(
             DocumentoTopico.topico_id == topico_id,
             Documento.tipo.in_(TIPOS_MENCAO),
@@ -361,6 +365,128 @@ async def ad_topic_ranking(
     ]
     linhas.sort(key=lambda r: r.investment_min_brl + r.investment_max_brl, reverse=True)
     return linhas[:limit] if limit else linhas
+
+
+async def _ad_topic_vigencia(
+    session: AsyncSession, topico_id: int, entidade: str, platforms: list[MetaAdPlatform],
+) -> tuple | None:
+    """Janela real de veiculação do tópico de anúncio: do primeiro ao último anúncio
+    atribuído a ele. Não recebe período de fora - mesma lógica de `_topic_vigencia` em
+    queries/topics.py, aplicada ao escopo meta_ads."""
+    dia = local_date_column()
+    stmt = (
+        select(func.min(dia), func.max(dia))
+        .select_from(Documento)
+        .join(AlvoColeta, AlvoColeta.id == Documento.alvo_coleta_id)
+        .join(DocumentoTopico, DocumentoTopico.documento_id == Documento.id)
+        .where(
+            DocumentoTopico.topico_id == topico_id,
+            AlvoColeta.entidade_codigo == entidade,
+            AlvoColeta.ativo.is_(True),
+        )
+    )
+    stmt = _ads_filter(stmt, platforms)
+    inicio, fim = (await session.execute(stmt)).first() or (None, None)
+    return None if inicio is None else (inicio, fim)
+
+
+async def ad_topic_detail(
+    session: AsyncSession,
+    topic_id: str,
+    topico_id: int,
+    entidade: str,
+    platforms: list[MetaAdPlatform],
+) -> AdTopicDetail | None:
+    """GET /candidates/content/topics/{topic_id} — cabeçalho do drill-down de anúncio.
+
+    Não recebe período: sempre calcula sobre a vigência do próprio tópico (ver
+    `_ad_topic_vigencia`). Mesma consulta de `ad_topic_ranking`, restrita a um
+    tópico/entidade em vez de agrupar todos.
+    """
+    vigencia = await _ad_topic_vigencia(session, topico_id, entidade, platforms)
+    if vigencia is None:
+        return None
+    period_start, period_end = vigencia
+    inicio, fim = day_bounds(period_start, period_end)
+    stmt = (
+        select(
+            Topico.rotulo,
+            Topico.numero,
+            Topico.palavras_chave,
+            Topico.revisado,
+            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "lower_bound")), 0).label("min"),
+            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "upper_bound")), 0).label("max"),
+            func.count().label("ads"),
+        )
+        .select_from(Documento)
+        .join(AlvoColeta, AlvoColeta.id == Documento.alvo_coleta_id)
+        .join(DocumentoTopico, DocumentoTopico.documento_id == Documento.id)
+        .join(Topico, Topico.id == DocumentoTopico.topico_id)
+        .where(
+            Documento.publicado_em >= inicio,
+            Documento.publicado_em < fim,
+            AlvoColeta.ativo.is_(True),
+            AlvoColeta.entidade_codigo == entidade,
+            DocumentoTopico.topico_id == topico_id,
+            Topico.modelo_id.in_(vigente_model_ids(TipoModeloEnum.topico)),
+        )
+        .group_by(Topico.rotulo, Topico.numero, Topico.palavras_chave, Topico.revisado)
+    )
+    stmt = _ads_filter(stmt, platforms)
+    row = (await session.execute(stmt)).first()
+    if row is None or row.ads == 0:
+        return None
+    return AdTopicDetail(
+        topic=Topic(
+            id=topic_id,
+            entity_id=entidade,
+            label=topic_label(row.rotulo, row.numero, row.palavras_chave),
+            weight=0.0,
+            tags=list(row.palavras_chave or []),
+            emergent=topic_emergent(row.revisado),
+        ),
+        investment_min_brl=int(row.min),
+        investment_max_brl=int(row.max),
+        ads_count=int(row.ads),
+        period_start=period_start,
+        period_end=period_end,
+    )
+
+
+async def ad_topic_series(
+    session: AsyncSession,
+    topico_id: int,
+    entidade: str,
+    period: Period,
+    platforms: list[MetaAdPlatform],
+) -> list[CandidateVolumePoint]:
+    """GET /candidates/content/topics/{topic_id}/series — evolução do tópico de anúncio.
+
+    Anúncios por dia, não menções — mesma forma de dado que series-by-candidate (uma
+    linha, o tópico já pertence a um candidato só), só que a fonte é sempre meta_ads."""
+    inicio, fim = day_bounds(period.start, period.end)
+    dia = local_date_column().label("dia")
+    stmt = (
+        select(dia, func.count().label("ads"))
+        .select_from(Documento)
+        .join(AlvoColeta, AlvoColeta.id == Documento.alvo_coleta_id)
+        .join(DocumentoTopico, DocumentoTopico.documento_id == Documento.id)
+        .where(
+            Documento.publicado_em >= inicio,
+            Documento.publicado_em < fim,
+            AlvoColeta.ativo.is_(True),
+            AlvoColeta.entidade_codigo == entidade,
+            DocumentoTopico.topico_id == topico_id,
+        )
+        .group_by(dia)
+        .order_by(dia)
+    )
+    stmt = _ads_filter(stmt, platforms)
+    rows = (await session.execute(stmt)).all()
+    return [
+        CandidateVolumePoint(date=row.dia, entity_id=entidade, mentions=row.ads)
+        for row in rows
+    ]
 
 
 async def ad_candidate_breakdown(

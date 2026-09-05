@@ -109,7 +109,15 @@ class TopicRankingRow(ApiModel):
 
 
 class TopicDetail(ApiModel):
-    """GET /topics/{id} — cabeçalho do drill-down."""
+    """GET /topics/{id} — cabeçalho do drill-down.
+
+    `period_start`/`period_end` são a vigência do tópico (primeiro ao último documento
+    atribuído a ele), não um período recebido do cliente - o endpoint não aceita mais
+    `from`/`to`. `mentions`/`share_pct`/`sentiment`/`peak_date` já são calculados sobre
+    essa janela; o front reusa period_start/end para as demais chamadas do drill-down
+    (série, sentimento ao longo do tempo, documentos), garantindo que a página inteira
+    olhe pro mesmo intervalo.
+    """
 
     topic: Topic
     mentions: int
@@ -117,6 +125,8 @@ class TopicDetail(ApiModel):
     sentiment: TopicSentiment
     peak_date: Date | None = None
     dominant_network: Network
+    period_start: Date
+    period_end: Date
 
 
 class SubdivisionColumn(ApiModel):
@@ -188,6 +198,25 @@ class AdTopicRankingRow(ApiModel):
     investment_min_brl: int = Field(serialization_alias="investmentMinBRL")
     investment_max_brl: int = Field(serialization_alias="investmentMaxBRL")
     ads_count: int
+
+
+class AdTopicDetail(ApiModel):
+    """GET /candidates/content/topics/{topic_id} — cabeçalho do drill-down de anúncio.
+
+    Drill-down próprio (não reaproveita /topics/{id}): aquele é hard-restrito a redes
+    orgânicas via `organic_scope` porque tem seção de sentimento, que anúncio pago não
+    tem — ver AdTopicRankingList.tsx.
+
+    `period_start`/`period_end` são a vigência do tópico (primeiro ao último anúncio
+    atribuído a ele) - o endpoint não aceita mais `from`/`to`, mesma lógica de TopicDetail.
+    """
+
+    topic: Topic
+    investment_min_brl: int = Field(serialization_alias="investmentMinBRL")
+    investment_max_brl: int = Field(serialization_alias="investmentMaxBRL")
+    ads_count: int
+    period_start: Date
+    period_end: Date
 
 
 class AdCandidateBreakdownRow(ApiModel):

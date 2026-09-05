@@ -7,6 +7,7 @@ import { RedirectIfAuthed } from './components/auth/RedirectIfAuthed'
 import { RequireAuth } from './components/auth/RequireAuth'
 import { ScrollToTop } from './components/layout/ScrollToTop'
 import { AuthProvider } from './context/AuthContext'
+import { AdTopicDrilldownPage } from './pages/AdTopicDrilldownPage'
 import { ComparisonPage } from './pages/ComparisonPage'
 import { LoginPage } from './pages/LoginPage'
 import { MethodologyPage } from './pages/MethodologyPage'
@@ -43,6 +44,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="topicos" element={<TopicsPage />} />
             <Route path="topicos/:topicId" element={<TopicDrilldownPage />} />
             <Route path="posts" element={<PostsPage />} />
+            <Route path="anuncios/:topicId" element={<AdTopicDrilldownPage />} />
             <Route path="comparativo" element={<ComparisonPage />} />
             <Route path="metodologia" element={<MethodologyPage />} />
           </Route>

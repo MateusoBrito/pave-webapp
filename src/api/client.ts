@@ -183,19 +183,21 @@ export interface TopicDetail {
   peakDate: string | undefined
 
   dominantNetwork: Network
+
+  /** Vigência do tópico (primeiro ao último documento atribuído a ele) - não um
+   * período recebido do cliente. O drill-down reusa isso para as demais chamadas
+   * da página em vez do filtro global, ver TopicDrilldownPage.tsx. */
+  periodStart: string
+  periodEnd: string
 }
 
 export function getTopicDetail(
   topicId: string,
   entityIds: string[],
-  period: PeriodFilter,
   networks: Network[] = [],
 ): Promise<TopicDetail | undefined> {
   void entityIds
-  return apiGetOptional<TopicDetail>(`/topics/${encodeURIComponent(topicId)}`, {
-    ...periodParams(period),
-    networks,
-  })
+  return apiGetOptional<TopicDetail>(`/topics/${encodeURIComponent(topicId)}`, { networks })
 }
 
 export function getTopicCandidateSeries(
@@ -287,9 +289,11 @@ export function getHighlights(
 
 export function getTopicDocuments(
   topicId: string,
+  period: PeriodFilter,
   filters: { entityIds?: string[]; networks?: Network[] } = {},
 ): Promise<TopicDocument[]> {
   return apiGet<TopicDocument[]>(`/topics/${encodeURIComponent(topicId)}/documents`, {
+    ...periodParams(period),
     networks: filters.networks,
   })
 }
@@ -346,6 +350,40 @@ export function getAdTopicRanking(
     platforms,
     limit,
   })
+}
+
+export interface AdTopicDetail {
+  topic: Topic
+  investmentMinBRL: number
+  investmentMaxBRL: number
+  adsCount: number
+  /** Vigência do tópico (primeiro ao último anúncio atribuído a ele) - mesma lógica de
+   * TopicDetail.periodStart/periodEnd. */
+  periodStart: string
+  periodEnd: string
+}
+
+/** Drill-down próprio para tópico de anúncio - /topics/{id} (getTopicDetail) é
+ * hard-restrito a redes orgânicas, um tópico de anúncio nunca resolve lá. */
+export function getAdTopicDetail(
+  topicId: string,
+  platforms: MetaAdPlatform[] = [],
+): Promise<AdTopicDetail | undefined> {
+  return apiGetOptional<AdTopicDetail>(
+    `/candidates/content/topics/${encodeURIComponent(topicId)}`,
+    { platforms },
+  )
+}
+
+export function getAdTopicSeries(
+  topicId: string,
+  period: PeriodFilter,
+  platforms: MetaAdPlatform[] = [],
+): Promise<CandidateVolumePoint[]> {
+  return apiGet<CandidateVolumePoint[]>(
+    `/candidates/content/topics/${encodeURIComponent(topicId)}/series`,
+    { ...periodParams(period), platforms },
+  )
 }
 
 export interface AdCandidateBreakdownRow {
