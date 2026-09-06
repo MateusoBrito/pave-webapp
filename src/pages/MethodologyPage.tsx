@@ -16,7 +16,10 @@ import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { IconTile } from '../components/ui/IconTile'
 import type { IconTone } from '../components/ui/IconTile'
+import { getCandidateRegistry, getCollectionStatus } from '../api/client'
 import { usePageHeader } from '../context/PageHeaderContext'
+import { useAsync } from '../hooks'
+import { formatFullDate } from '../lib/dates'
 import { sentimentColor } from '../lib/colors'
 import type { SentimentLabel } from '../types'
 
@@ -187,19 +190,38 @@ const PRIVACY_ITEMS = [
   },
 ]
 
-const VERSIONS = [
-  { label: 'Modelo de tópicos', value: 'v7 · re-modelado em 01/07/2026' },
-  { label: 'Próxima re-modelagem', value: '01/08/2026' },
-  { label: 'Modelo de sentimento', value: 'a definir por benchmark · Fase 4' },
-  { label: 'Última coleta concluída', value: '02/08/2026 · sem lacunas em julho' },
-  { label: 'Candidatos monitorados', value: 'Lula e Flávio Bolsonaro' },
-]
+/** Junta nomes em linguagem natural: "A", "A e B", "A, B e C". */
+function listaPorExtenso(nomes: string[]): string {
+  if (nomes.length === 0) return ''
+  if (nomes.length === 1) return nomes[0]
+  return `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`
+}
 
 export function MethodologyPage() {
   usePageHeader(
     'Metodologia',
     'De onde vêm os dados, como são tratados e o que este painel não consegue dizer',
   )
+
+  const { data: status } = useAsync(() => getCollectionStatus(), [])
+  const { data: registry } = useAsync(() => getCandidateRegistry(), [])
+
+  /** Só linhas que algum endpoint sustenta. Versão do modelo de tópicos, próxima
+   * re-modelagem e modelo de sentimento eram texto fixo sem fonte — a de "próxima"
+   * chegou a anunciar uma data já passada. Numa página sobre procedência do dado, uma
+   * afirmação que ninguém consegue verificar custa mais do que a linha ausente. */
+  const versions = [
+    {
+      label: 'Última coleta concluída',
+      value: status ? formatFullDate(status.lastCollectionDate) : '—',
+    },
+    {
+      label: 'Candidatos monitorados',
+      value: registry
+        ? listaPorExtenso(registry.filter((c) => c.monitorada).map((c) => c.name))
+        : '—',
+    },
+  ]
 
   return (
     <>
@@ -456,7 +478,7 @@ export function MethodologyPage() {
 
         <Card icon={History} tone="graphite" title="Versões e atualização">
           <div className="flex flex-col">
-            {VERSIONS.map((v, index) => (
+            {versions.map((v, index) => (
               <div key={v.label}>
                 <div className="flex items-center justify-between gap-4 py-3 text-[11px]">
                   <p className="font-medium text-[var(--text-muted)]">{v.label}</p>
@@ -464,21 +486,12 @@ export function MethodologyPage() {
                     {v.value}
                   </p>
                 </div>
-                {index < VERSIONS.length - 1 && (
+                {index < versions.length - 1 && (
                   <div className="h-px bg-[var(--gridline)]" />
                 )}
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            disabled
-            title="Histórico de modelos ainda não existe"
-            className="flex w-fit cursor-not-allowed items-center gap-2 rounded-lg bg-[var(--tint-primary)] px-3.5 py-2.5 text-[11px] font-semibold text-[var(--color-primary-dark)] opacity-70"
-          >
-            <History size={13} />
-            Ver histórico de mudanças de modelo
-          </button>
         </Card>
       </section>
     </>

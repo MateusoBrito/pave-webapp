@@ -46,8 +46,15 @@ export function MentionsByNetworkChart({
   error,
   refetch,
 }: Props) {
-  const { setDays, clearFilters } = useFilters()
+  const { networks, setDays, clearFilters } = useFilters()
   const isEmpty = !loading && !error && data.every((d) => d.mentions === 0)
+
+  /** Redes que o card está somando. Precisa acompanhar o filtro: lista vazia
+   * significa "todas" (mesma convenção do `OrganicScope` da API). Fixo em NETWORKS,
+   * o subtítulo anunciava redes que não estavam no recorte. */
+  const scopeLabels = (
+    networks.length === 0 ? NETWORKS : NETWORKS.filter((n) => networks.includes(n.id))
+  ).map((n) => n.label)
 
   const rows = data.map((d) => {
     const row: Record<string, number | string> = {
@@ -120,7 +127,7 @@ export function MentionsByNetworkChart({
             Menções por rede social
           </h2>
           <p className="text-xs text-[var(--text-muted)]">
-            {NETWORKS.map((n) => n.label).join(' · ')}
+            {scopeLabels.join(' · ')}
           </p>
         </div>
       </div>
@@ -187,6 +194,7 @@ export function MentionsByNetworkChart({
                 tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
+                tickFormatter={formatCompactNumber}
                 width={40}
               />
               <Tooltip

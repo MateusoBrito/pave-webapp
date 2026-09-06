@@ -51,6 +51,14 @@ export function TopicsPage() {
       : (DEFAULT_SINGLE_NETWORK as UserNetwork)
   const scopeNote = SCOPE_NOTE[network]
 
+  /** A matriz tópico × subdivisão só diz algo quando o tópico pode aparecer em mais de
+   * uma coluna. No Reddit as colunas são subreddits e ele pode. No YouTube a coluna é o
+   * canal oficial — um por candidato — e tópico pertence a um candidato só, então toda
+   * linha teria exatamente uma célula preenchida e o resto zero. Isso não é dado ralo, é
+   * o eixo das colunas duplicando o de propriedade: a diagonal sai imposta por
+   * construção, e o TopicsRankingList ao lado já mostra tópico, dono e volume. */
+  const mostraSubdivisao = network === 'reddit'
+
   usePageHeader(
     'O que os usuários comentam?',
     `Comentários e publicações do público no ${NETWORK_LABEL[network]} · ${formatDateRange(period)}`,
@@ -81,7 +89,13 @@ export function TopicsPage() {
     loading: matrixLoading,
     error: matrixError,
     refetch: refetchMatrix,
-  } = useAsync(() => getTopicsBySubdivision(candidateIds, period, network), deps)
+  } = useAsync(
+    () =>
+      mostraSubdivisao
+        ? getTopicsBySubdivision(candidateIds, period, network)
+        : Promise.resolve(undefined),
+    deps,
+  )
   const {
     data: candidateSentiment = [],
     loading: candidateSentimentLoading,
@@ -122,7 +136,9 @@ export function TopicsPage() {
         refetch={refetchSeries}
       />
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <section
+        className={`grid grid-cols-1 gap-6 ${mostraSubdivisao ? 'lg:grid-cols-2' : ''}`}
+      >
         <TopicsRankingList
           rows={ranking}
           entities={entities}
@@ -130,19 +146,17 @@ export function TopicsPage() {
           error={rankingError}
           refetch={refetchRanking}
         />
-        <TopicsBySubdivisionGrid
-          matrix={matrix}
-          title={network === 'reddit' ? 'Tópicos por subreddit' : 'Tópicos por canal'}
-          subtitle={
-            network === 'reddit'
-              ? 'Onde cada tema circula dentro do Reddit'
-              : 'Onde cada tema circula entre os canais oficiais'
-          }
-          entities={entities}
-          loading={matrixLoading}
-          error={matrixError}
-          refetch={refetchMatrix}
-        />
+        {mostraSubdivisao && (
+          <TopicsBySubdivisionGrid
+            matrix={matrix}
+            title="Tópicos por subreddit"
+            subtitle="Onde cada tema circula dentro do Reddit"
+            entities={entities}
+            loading={matrixLoading}
+            error={matrixError}
+            refetch={refetchMatrix}
+          />
+        )}
       </section>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -28,7 +28,7 @@ import { StatusCard } from '../components/ui/StatusCard'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
-import type { SentimentLabel } from '../types'
+import { NETWORKS, type Network, type SentimentLabel } from '../types'
 import { formatDateRange } from '../lib/dates'
 import { formatCompactNumber, formatPercent, formatSignedPercent } from '../lib/format'
 
@@ -45,6 +45,26 @@ const SENTIMENT_TONE: Record<SentimentLabel, IconTone> = {
 const HIGHLIGHT_STYLE: Record<string, { icon: LucideIcon; tone: IconTone }> = {
   top_topic: { icon: TrendingUp, tone: 'purple' },
   network_growth: { icon: ArrowUpRight, tone: 'green' },
+}
+
+/** Descreve de quais redes o "clima dos comentários" foi somado — precisa acompanhar o
+ * filtro de rede, e reproduzir o mesmo recorte do `OrganicScope` da API: Meta Ads sai
+ * sempre (anúncio pago não tem reação pública coletável), e filtro vazio = todas. */
+function organicScopeNote(networks: Network[]): string {
+  const organic = NETWORKS.filter(
+    (n) => n.id !== 'meta_ads' && (networks.length === 0 || networks.includes(n.id)),
+  )
+  if (organic.length === 0) {
+    return 'Nenhuma rede orgânica no filtro · anúncios da Meta não têm sentimento'
+  }
+
+  const nomes = organic.map((n) => n.label)
+  const lista =
+    nomes.length === 1 ? nomes[0] : `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`
+  const base = nomes.length === 1 ? `Somente ${lista}` : `Soma de ${lista}`
+
+  const metaNoFiltro = networks.length === 0 || networks.includes('meta_ads')
+  return metaNoFiltro ? `${base} · anúncios da Meta não entram` : base
 }
 
 export function OverviewPage() {
@@ -151,7 +171,7 @@ export function OverviewPage() {
             <KpiCard
               icon={Thermometer}
               tone={SENTIMENT_TONE[predominant]}
-              label="Clima do debate"
+              label="Clima dos comentários"
               value={SENTIMENT_LABEL[predominant]}
               subtext={
                 sentiment
@@ -160,7 +180,7 @@ export function OverviewPage() {
                     )} neutro · ${formatPercent((sentiment.positive / sentimentTotal) * 100)} positivo`
                   : undefined
               }
-              subtextSecondary="Soma de Reddit e YouTube · anúncios da Meta não entram"
+              subtextSecondary={organicScopeNote(networks)}
             />
           </>
         )}

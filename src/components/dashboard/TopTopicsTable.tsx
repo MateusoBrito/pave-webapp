@@ -43,10 +43,6 @@ export function TopTopicsTable({ rows, entities, loading, error, refetch }: Prop
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
             Top 10 tópicos do período
           </h2>
-          <p className="text-xs text-[var(--text-muted)]">
-            Todo tópico pertence a um candidato — o modelo gera conjuntos separados para
-            cada um
-          </p>
         </div>
       </div>
 

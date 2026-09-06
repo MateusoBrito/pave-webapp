@@ -36,6 +36,14 @@ const SENTIMENT_LABEL: Record<string, string> = {
   positive: 'Positivo',
 }
 
+/** No YouTube o documento coletado é o próprio comentário: o vídeo do canal oficial
+ * fica fora do corpus por ser conteúdo do candidato, não conversa do público (ver
+ * api/README.md). Como não existe thread abaixo de um comentário, o card não oferece
+ * "Ver comentários" nessa rede. */
+function temThread(doc: TopicDocument): boolean {
+  return doc.network !== 'youtube'
+}
+
 const PAGE_SIZE = 3
 
 interface Props {
@@ -184,14 +192,16 @@ export function TopicExamplePosts({
                 <p className="text-xs leading-relaxed text-[var(--text-primary)]">
                   &ldquo;{doc.text}&rdquo;
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setOpenDocumentId(doc.id)}
-                  className={`mt-auto flex w-fit items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-[var(--color-primary-dark)] transition-colors hover:bg-black/5 ${FOCUS_RING}`}
-                >
-                  <MessageCircle size={12} />
-                  Ver comentários
-                </button>
+                {temThread(doc) && (
+                  <button
+                    type="button"
+                    onClick={() => setOpenDocumentId(doc.id)}
+                    className={`mt-auto flex w-fit items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-[var(--color-primary-dark)] transition-colors hover:bg-black/5 ${FOCUS_RING}`}
+                  >
+                    <MessageCircle size={12} />
+                    Ver comentários
+                  </button>
+                )}
               </div>
             )
           })}

@@ -8,6 +8,18 @@ interface Row {
   color: string
 }
 
+/** Um label de eixo X só vira data quando realmente é uma. Este tooltip é
+ * compartilhado por gráficos de série temporal (label = ISO), pelo de menções por rede
+ * (label = nome da rede) e pelas pizzas (sem label nenhum) — formatar tudo como data
+ * fazia os dois últimos exibirem "undefined/undefined". */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}/
+
+function tituloDoTooltip(label: unknown): string | null {
+  if (label === undefined || label === null || label === '') return null
+  const texto = String(label)
+  return ISO_DATE.test(texto) ? formatShortDate(texto) : texto
+}
+
 /** Values lead, series name follows — line-key stroke instead of a filled swatch box. */
 export function ChartTooltip({ active, payload, label }: TooltipContentProps) {
   if (!active || !payload || payload.length === 0) return null
@@ -21,11 +33,13 @@ export function ChartTooltip({ active, payload, label }: TooltipContentProps) {
       color: String(entry.color),
     }))
 
+  const titulo = tituloDoTooltip(label)
+
   return (
     <div className="rounded-lg border border-[var(--baseline)] bg-[var(--chart-surface)] px-3 py-2 shadow-lg">
-      <p className="mb-1 text-xs text-[var(--text-muted)]">
-        {formatShortDate(String(label))}
-      </p>
+      {titulo !== null && (
+        <p className="mb-1 text-xs text-[var(--text-muted)]">{titulo}</p>
+      )}
       <dl className="space-y-1">
         {rows.map((row) => (
           <div key={row.key} className="flex items-center gap-2 text-sm">
