@@ -5,12 +5,12 @@ Cada linha aqui é um par (tópico do modelo, entidade) — ver a docstring de
 """
 
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..deps import Period
-from ..models import AlvoColeta, DocumentoTopico, Entidade, Topico
-from ..schemas.domain import Network, Topic, TopicSentiment, network_de
+from ..models import AlvoColeta, Documento, DocumentoTopico, Entidade, Topico
+from ..schemas.domain import Network, Topic, TopicSentiment, fonte_de, network_de
 from ..schemas.responses import (
     SubdivisionColumn,
     SubdivisionMatrix,
@@ -22,6 +22,7 @@ from .base import (
     NEGATIVE,
     NEUTRAL,
     POSITIVE,
+    TIPOS_MENCAO,
     canal_label,
     compose_topic_id,
     fact_select,
@@ -29,6 +30,33 @@ from .base import (
     topic_emergent,
     topic_label,
 )
+
+
+async def _topic_vigencia(
+    session: AsyncSession, topico_id: int, entidade: str, networks: list[Network],
+) -> Period | None:
+    """Janela real de atividade do tópico: do primeiro ao último documento atribuído a
+    ele, dentro do escopo de rede. Não recebe período de fora - vigência é justamente
+    descobrir esse intervalo, não um recorte imposto pelo cliente."""
+    dia = local_date_column()
+    stmt = (
+        select(func.min(dia), func.max(dia))
+        .select_from(Documento)
+        .join(AlvoColeta, AlvoColeta.id == Documento.alvo_coleta_id)
+        .join(DocumentoTopico, DocumentoTopico.documento_id == Documento.id)
+        .where(
+            DocumentoTopico.topico_id == topico_id,
+            AlvoColeta.entidade_codigo == entidade,
+            Documento.tipo.in_(TIPOS_MENCAO),
+            AlvoColeta.ativo.is_(True),
+        )
+    )
+    if networks:
+        stmt = stmt.where(AlvoColeta.fonte_codigo.in_([fonte_de(n) for n in networks]))
+    inicio, fim = (await session.execute(stmt)).first() or (None, None)
+    if inicio is None:
+        return None
+    return Period(start=inicio, end=fim)
 
 
 def _build_topic(row, weight: float) -> Topic:
@@ -139,15 +167,19 @@ async def topic_detail(
     topic_id: str,
     topico_id: int,
     entidade: str,
-    period: Period,
     networks: list[Network],
 ) -> TopicDetail | None:
     """GET /topics/{id} — cabeçalho do drill-down.
 
-    `sharePct` é sobre o total de menções de **todos** os tópicos no período, com o
-    mesmo escopo de rede — é o que o mock calcula e o que a tela rotula como
-    "share do total".
+    Não recebe período: sempre calcula sobre a vigência do próprio tópico (primeiro ao
+    último documento atribuído a ele) - ver `_topic_vigencia`. `sharePct` é sobre o
+    total de menções de **todos** os tópicos nessa mesma janela, com o mesmo escopo de
+    rede — é o que o mock calcula e o que a tela rotula como "participação no período".
     """
+    period = await _topic_vigencia(session, topico_id, entidade, networks)
+    if period is None:
+        return None
+
     linhas = await _ranking_rows(session, period, [entidade], networks, topico_id=topico_id)
     if not linhas:
         return None
@@ -185,6 +217,8 @@ async def topic_detail(
         topic=_build_topic(row, row.mentions / total if total else 0.0),
         mentions=row.mentions,
         share_pct=row.mentions / total * 100,
+        period_start=period.start,
+        period_end=period.end,
         sentiment=TopicSentiment(
             negative=row.negative or 0,
             neutral=row.neutral or 0,

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     db_max_overflow: int = 5
     db_ssl: str = ""
 
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:5175"]
 
     fotos_dir: str = ""
 

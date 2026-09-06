@@ -64,17 +64,17 @@ async def by_subdivision(
 @router.get("/topics/{topic_id}", response_model=TopicDetail, response_model_exclude_none=True)
 async def detail(
     topic_id: str,
-    period: Period = Depends(period_params),
     escopo: OrganicScope = Depends(organic_scope),
     session: AsyncSession = Depends(get_session),
 ):
+    """Não recebe período: `topic_detail` calcula sobre a vigência do próprio tópico
+    (ver docstring de `queries/topics.py`). O front reusa periodStart/periodEnd da
+    resposta para as demais chamadas do drill-down."""
     topico_id, entidade = _split(topic_id)
-    resultado = await topics.topic_detail(
-        session, topic_id, topico_id, entidade, period, escopo.networks
-    )
+    resultado = await topics.topic_detail(session, topic_id, topico_id, entidade, escopo.networks)
     if resultado is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tópico sem dados no período."
+            status_code=status.HTTP_404_NOT_FOUND, detail="Tópico sem documentos."
         )
     return resultado
 
@@ -132,13 +132,14 @@ async def sentiment_series(
 @router.get("/topics/{topic_id}/documents", response_model=list[TopicDocument], response_model_exclude_none=True)
 async def topic_documents(
     topic_id: str,
+    period: Period = Depends(period_params),
     escopo: OrganicScope = Depends(organic_scope),
     limit: int = Query(60, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
 ):
     topico_id, entidade = _split(topic_id)
     return await documents.topic_documents(
-        session, topico_id, entidade, escopo.networks, limit
+        session, topico_id, entidade, escopo.networks, period, limit
     )
 
 

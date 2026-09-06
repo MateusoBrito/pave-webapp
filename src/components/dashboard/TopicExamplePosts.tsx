@@ -5,20 +5,20 @@ import {
   ChevronRight,
   Inbox,
   Megaphone,
-  MessageCircle,
   MessageSquare,
   MessageSquareQuote,
   Play,
+  User,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { TopicDocument } from '../../types'
 import { useFilters } from '../../context/FiltersContext'
 import { networkColor, sentimentColor } from '../../lib/colors'
+import { formatDateTime } from '../../lib/dates'
 import { FOCUS_RING } from '../ui/focusRing'
 import { IconTile, type IconTone } from '../ui/IconTile'
 import { TableCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
-import { CommentsPanel } from './CommentsPanel'
 
 const NETWORK_ICON: Record<string, LucideIcon> = {
   youtube: Play,
@@ -36,15 +36,7 @@ const SENTIMENT_LABEL: Record<string, string> = {
   positive: 'Positivo',
 }
 
-/** No YouTube o documento coletado é o próprio comentário: o vídeo do canal oficial
- * fica fora do corpus por ser conteúdo do candidato, não conversa do público (ver
- * api/README.md). Como não existe thread abaixo de um comentário, o card não oferece
- * "Ver comentários" nessa rede. */
-function temThread(doc: TopicDocument): boolean {
-  return doc.network !== 'youtube'
-}
-
-const PAGE_SIZE = 3
+const PAGE_SIZE = 6
 
 interface Props {
   documents: TopicDocument[]
@@ -57,10 +49,14 @@ interface Props {
   tone?: IconTone
 }
 
-/** "Exemplos do que foi dito" do drill-down de tópico — carrossel paginado de 3 em 3,
- * com borda colorida por sentimento. Título/subtítulo/ícone são configuráveis: "O que
- * os usuários comentam?" reaproveita este mesmo componente por rede (Reddit/YouTube),
- * só trocando o texto. Cada card abre a thread inteira de comentários (CommentsPanel). */
+/** "Exemplos do que foi dito" — feed de comentários em 2 colunas (o formato lê melhor
+ * vertical, e 2 colunas usa o espaço horizontal da seção sem estreitar demais cada
+ * item). Título/subtítulo/ícone são configuráveis: "O que os usuários comentam?"
+ * reaproveita este mesmo componente por rede (Reddit/YouTube), só trocando o texto.
+ * Sem "ver comentários": cada documento já é o comentário completo, não uma
+ * publicação com uma thread própria pra abrir (ver CommentsPanel, removido daqui —
+ * a "thread" que ele buscava só existe de verdade pro Reddit, que grava parent_id;
+ * o YouTube nunca capturou esse vínculo e o painel sempre voltava vazio lá). */
 export function TopicExamplePosts({
   documents,
   loading,
@@ -73,7 +69,6 @@ export function TopicExamplePosts({
 }: Props) {
   const { clearFilters } = useFilters()
   const [page, setPage] = useState(0)
-  const [openDocumentId, setOpenDocumentId] = useState<string | null>(null)
   const isEmpty = !loading && !error && documents.length === 0
   const pageCount = Math.max(1, Math.ceil(documents.length / PAGE_SIZE))
 
@@ -148,70 +143,42 @@ export function TopicExamplePosts({
           primaryAction={{ label: 'Limpar filtros', onClick: clearFilters }}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
           {visible.map((doc) => {
             const NetworkIcon = NETWORK_ICON[doc.network]
+            const color = sentimentColor(doc.sentiment)
             return (
               <div
                 key={doc.id}
-                className="flex flex-col gap-3 rounded-[14px] border-l-4 p-[18px]"
-                style={{
-                  borderLeftColor: sentimentColor(doc.sentiment),
-                  backgroundColor: `color-mix(in srgb, ${sentimentColor(doc.sentiment)} 8%, var(--chart-surface))`,
-                }}
+                className="flex gap-3 border-b border-[var(--gridline)] py-4"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 rounded-[7px] border border-[var(--gridline)] bg-[var(--chart-surface)] py-1 pr-2.5 pl-1">
-                    <span
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px]"
-                      style={{ backgroundColor: `${networkColor(doc.network)}1a` }}
-                    >
-                      <NetworkIcon
-                        size={11}
-                        style={{ color: networkColor(doc.network) }}
-                      />
-                    </span>
-                    <span className="text-[10px] font-semibold text-[var(--text-secondary)]">
+                <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-[var(--tint-graphite)] text-[var(--text-muted)]">
+                  <User size={16} />
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <p className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+                    <NetworkIcon size={12} style={{ color: networkColor(doc.network) }} />
+                    <span className="font-semibold text-[var(--text-secondary)]">
                       {NETWORK_LABEL[doc.network]}
                     </span>
-                  </span>
+                    · {formatDateTime(doc.publishedAt)}
+                  </p>
+                  <p className="text-[13px] leading-relaxed text-[var(--text-primary)]">
+                    &ldquo;{doc.text}&rdquo;
+                  </p>
                   <span
-                    className="flex shrink-0 items-center gap-1.5 rounded-[7px] px-2.5 py-1 text-[10px] font-bold"
-                    style={{
-                      backgroundColor: `color-mix(in srgb, ${sentimentColor(doc.sentiment)} 20%, white)`,
-                      color: sentimentColor(doc.sentiment),
-                    }}
+                    className="mt-0.5 flex w-fit items-center gap-1.5 text-[10.5px] font-bold"
+                    style={{ color }}
                   >
-                    <span
-                      className="h-[7px] w-[7px] rounded-full"
-                      style={{ backgroundColor: sentimentColor(doc.sentiment) }}
-                    />
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
                     {SENTIMENT_LABEL[doc.sentiment]}
                   </span>
                 </div>
-                <p className="text-xs leading-relaxed text-[var(--text-primary)]">
-                  &ldquo;{doc.text}&rdquo;
-                </p>
-                {temThread(doc) && (
-                  <button
-                    type="button"
-                    onClick={() => setOpenDocumentId(doc.id)}
-                    className={`mt-auto flex w-fit items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-[var(--color-primary-dark)] transition-colors hover:bg-black/5 ${FOCUS_RING}`}
-                  >
-                    <MessageCircle size={12} />
-                    Ver comentários
-                  </button>
-                )}
               </div>
             )
           })}
         </div>
       )}
-
-      <CommentsPanel
-        documentId={openDocumentId}
-        onClose={() => setOpenDocumentId(null)}
-      />
     </section>
   )
 }

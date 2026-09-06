@@ -46,6 +46,23 @@ export function detectGapRanges<T extends { date: string }>(
   return ranges
 }
 
+/** Dia com maior soma de `valueFn` entre os pontos - usado pelo KPI de "pico" (menções na
+ * Visão Geral, anúncios no drill-down de tópico de anúncio). Soma antes de comparar porque
+ * `points` pode ter mais de uma linha por dia (uma por candidato/entidade). */
+export function peakDay<T extends { date: string }>(
+  points: T[],
+  valueFn: (point: T) => number,
+): { date: string; total: number } | null {
+  if (points.length === 0) return null
+  const totals = new Map<string, number>()
+  for (const p of points) totals.set(p.date, (totals.get(p.date) ?? 0) + valueFn(p))
+  let peak = { date: '', total: -1 }
+  for (const [date, total] of totals) {
+    if (total > peak.total) peak = { date, total }
+  }
+  return peak
+}
+
 /** Pivota uma lista de pontos com `date` em linhas por dia, uma coluna por chave —
  * usado por todo gráfico de série temporal com múltiplas séries (candidato ou tópico). */
 export function pivotByDate<T extends { date: string }>(
