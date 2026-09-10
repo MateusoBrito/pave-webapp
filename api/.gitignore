@@ -2,6 +2,8 @@ __pycache__/
 .venv/
 .env
 .pytest_cache/
+firebase-adminsdk.json
+pave_api.egg-info/
 
 # dependências e artefatos gerados dos testes
 tests/pgtest/node_modules/

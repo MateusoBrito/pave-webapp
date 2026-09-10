@@ -22,6 +22,7 @@ from .base import (
     TIMEZONE,
     TIPOS_MENCAO,
     compose_topic_id,
+    today_local,
     topic_emergent,
     topic_label,
     vigente_model_ids,
@@ -132,7 +133,9 @@ async def list_topics(session: AsyncSession) -> list[Topic]:
         .join(counts, counts.c.topico_id == Topico.id)
         .join(total_por_entidade, total_por_entidade.c.entidade == counts.c.entidade)
         .where(
-            Topico.modelo_id.in_(vigente_model_ids(TipoModeloEnum.topico)),
+            # Sem período próprio (ver docstring do módulo) - cai no dia de hoje, já que
+            # a modelagem diária grava um conjunto de tópicos por dia (base.py).
+            Topico.modelo_id.in_(vigente_model_ids(TipoModeloEnum.topico, day=today_local())),
             Topico.numero != OUTLIER_TOPIC_NUMBER,
         )
     )
@@ -158,7 +161,9 @@ async def list_emergent_topics(session: AsyncSession) -> list[EmergentTopic]:
     stmt = (
         select(Topico.id, Topico.rotulo, Topico.numero, Topico.tamanho)
         .where(
-            Topico.modelo_id.in_(vigente_model_ids(TipoModeloEnum.topico)),
+            # Sem período próprio (ver docstring do módulo) - cai no dia de hoje, já que
+            # a modelagem diária grava um conjunto de tópicos por dia (base.py).
+            Topico.modelo_id.in_(vigente_model_ids(TipoModeloEnum.topico, day=today_local())),
             Topico.numero == OUTLIER_TOPIC_NUMBER,
         )
         .order_by(Topico.tamanho.desc().nullslast())

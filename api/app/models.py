@@ -105,6 +105,11 @@ class AlvoColeta(Base):
     )
     fonte_codigo = Column(String(20), ForeignKey("fonte.codigo"), nullable=False)
     canal = Column(String(160), nullable=False)
+    # Nome legível do canal quando `canal` em si não é (ex: channel_id do YouTube) -
+    # populado por seed_alvo_coleta em pave-pipeline a partir de
+    # entities.yaml/youtube.canais_noticia; NULL para Reddit/Meta (rótulo já sai
+    # legível de outro jeito - ver canal_label()).
+    rotulo = Column(String(160), nullable=True)
     termo_busca = Column(String(160), nullable=False, default="")
 
     tipo = Column(SQLEnum(TipoTermoEnum, name="tipo_termo"), nullable=False)

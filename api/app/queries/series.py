@@ -32,6 +32,7 @@ from .base import (
     compose_topic_id,
     fact_select,
     local_date_column,
+    local_hour_column,
 )
 
 
@@ -253,10 +254,13 @@ async def sentiment_series(
     topico_id: int | None = None,
     entidade: str | None = None,
 ) -> list[SentimentSeriesPoint]:
-    """GET /topics/{id}/sentiment-series — série diária empilhada do drill-down."""
-    dia = local_date_column().label("dia")
+    """GET /topics/{id}/sentiment-series — série por hora empilhada do drill-down.
+    Por hora, não por dia: o único chamador é o drill-down de um tópico específico, e
+    a modelagem diária faz o tópico inteiro viver dentro de um único dia calendário -
+    uma série diária colapsaria num ponto só."""
+    hora = local_hour_column().label("hora")
     stmt = fact_select(
-        dia,
+        hora,
         NEGATIVE.label("negative"),
         NEUTRAL.label("neutral"),
         POSITIVE.label("positive"),
@@ -267,12 +271,12 @@ async def sentiment_series(
     )
     if topico_id is not None:
         stmt = stmt.where(DocumentoTopico.topico_id == topico_id)
-    stmt = stmt.group_by(dia).order_by(dia)
+    stmt = stmt.group_by(hora).order_by(hora)
 
     rows = (await session.execute(stmt)).all()
     return [
         SentimentSeriesPoint(
-            date=row.dia,
+            date=row.hora,
             sentiment=TopicSentiment(
                 negative=row.negative or 0,
                 neutral=row.neutral or 0,

@@ -7,6 +7,7 @@ os nomes das interfaces TS para facilitar o diff.
 """
 
 from datetime import date as Date
+from datetime import datetime as DateTime
 from enum import Enum
 
 from pydantic import Field
@@ -61,10 +62,21 @@ class ShareOfVoiceEntry(ApiModel):
 
 
 class SentimentSeriesPoint(ApiModel):
-    """GET /topics/{id}/sentiment-series — série diária do gráfico empilhado."""
+    """GET /topics/{id}/sentiment-series — série por hora do gráfico empilhado do
+    drill-down de tópico. Granularidade por hora, não por dia: um tópico já vive
+    inteiro dentro de um único dia (modelagem diária), "date" carrega hora e minuto."""
 
-    date: Date
+    date: DateTime
     sentiment: TopicSentiment
+
+
+class TopicHourlyVolumePoint(ApiModel):
+    """GET /topics/{id}/series-by-candidate — evolução por hora do tópico no drill-down
+    (não usa CandidateVolumePoint, que é diário e usado por outras telas)."""
+
+    date: DateTime
+    entity_id: str
+    mentions: int
 
 
 class OverviewSummary(ApiModel):
@@ -256,3 +268,29 @@ class CandidateTopicListResult(ApiModel):
     rows: list[CandidateTopicListRow]
     total_filtered: int
     remaining_mentions: int
+
+
+class TopicCalendarDay(ApiModel):
+    """Um dia no calendário de tópicos - ver TopicCalendarEntity.
+
+    `top_label`/`mentions` ausentes = dia sem modelo diário carregado (ver
+    pipeline/weekly_topics.py em pave-tm) ou sem documentos suficientes naquele dia -
+    célula vazia no calendário, não um erro.
+    """
+
+    date: Date
+    top_label: str | None = None
+    mentions: int | None = None
+
+
+class TopicCalendarEntity(ApiModel):
+    entity_id: str
+    days: list[TopicCalendarDay]
+
+
+class TopicCalendarResult(ApiModel):
+    """GET /topics/calendar — um mini-calendário por candidato (ver DayFilterCard ->
+    calendário no front): o tópico de maior volume de cada dia, candidato a candidato,
+    numa janela de dias."""
+
+    entities: list[TopicCalendarEntity]
