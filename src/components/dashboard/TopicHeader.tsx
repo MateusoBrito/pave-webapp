@@ -1,8 +1,8 @@
 import { AlertTriangle, Hash, Search } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { TopicDetail } from '../../api/client'
-import type { Entity, Network, SentimentLabel, TopicSentiment } from '../../types'
-import { sentimentColor } from '../../lib/colors'
+import type { Entity, Network } from '../../types'
+import { predominantSentiment, sentimentColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
 import { formatPercent } from '../../lib/format'
 import { IconTile } from '../ui/IconTile'
@@ -19,20 +19,6 @@ const NETWORK_LABEL: Record<Network, string> = {
   youtube: 'YouTube',
   reddit: 'Reddit',
   meta_ads: 'Meta Ads',
-}
-
-function predominant(sentiment: TopicSentiment): { label: SentimentLabel; pct: number } {
-  const total = sentiment.negative + sentiment.neutral + sentiment.positive || 1
-  if (
-    sentiment.negative >= sentiment.neutral &&
-    sentiment.negative >= sentiment.positive
-  ) {
-    return { label: 'negative', pct: (sentiment.negative / total) * 100 }
-  }
-  if (sentiment.positive >= sentiment.neutral) {
-    return { label: 'positive', pct: (sentiment.positive / total) * 100 }
-  }
-  return { label: 'neutral', pct: (sentiment.neutral / total) * 100 }
 }
 
 function Indicator({
@@ -135,7 +121,7 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
     )
   }
 
-  const { label: sentimentLabel, pct: sentimentPct } = predominant(detail.sentiment)
+  const { label: sentimentLabel, pct: sentimentPct } = predominantSentiment(detail.sentiment)
   const network = detail.dominantNetwork
 
   return (

@@ -164,7 +164,7 @@ export function TopicExamplePosts({
                     · {formatDateTime(doc.publishedAt)}
                   </p>
                   <p className="text-[13px] leading-relaxed text-[var(--text-primary)]">
-                    &ldquo;{doc.text}&rdquo;
+                    {doc.text}
                   </p>
                   <span
                     className="mt-0.5 flex w-fit items-center gap-1.5 text-[10.5px] font-bold"

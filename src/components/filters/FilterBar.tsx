@@ -25,13 +25,14 @@ export function FilterBar() {
   if (isPosts) return null
 
   // "O que os usuários comentam?" é sempre uma rede por vez (Reddit ou YouTube) — Meta
-  // Ads não entra: é conteúdo do candidato, não do público (ver PostsPage)
+  // Ads não entra: é conteúdo do candidato, não do público (ver PostsPage). O dia é
+  // escolhido dentro da própria página agora, clicando no TopicsCalendarCard - não tem
+  // mais um card de dia aqui (ver DayFilterCard, removido).
   if (isTopics) {
     return (
       <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <CandidateAvatarFilter />
-          <PeriodFilterCard />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <CandidateAvatarFilter singleSelect />
           <NetworkChipFilter
             singleSelect
             title="Qual plataforma?"
@@ -53,11 +54,12 @@ export function FilterBar() {
   // conforme Figma) — os filtros são renderizados dentro de ComparisonPage
   if (isComparison) return null
 
+  // Visão Geral (única rota que cai aqui - ver comentários acima) sempre mostra todo
+  // o período disponível, sem seletor - ver OverviewPage/allTimePeriod.
   return (
     <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <CandidateAvatarFilter />
-        <PeriodFilterCard />
         <NetworkChipFilter />
       </div>
     </div>

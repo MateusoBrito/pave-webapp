@@ -66,3 +66,13 @@ body {
   background: var(--page-plane);
   color: var(--text-primary);
 }
+
+/* Navegadores não dão cursor de mão de graça pra <button> (só <a href> tem isso por
+ * padrão) - sem essa regra, todo botão customizado do site (que é a esmagadora
+ * maioria dos elementos clicáveis aqui, não links) mostra a seta normal ao passar o
+ * mouse em cima, mesmo sendo clicável. Global em vez de por componente porque são
+ * dezenas de botões espalhados pelo código - uma regra só resolve todos de uma vez. */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']) {
+  cursor: pointer;
+}

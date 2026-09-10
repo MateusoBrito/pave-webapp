@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronLeft, ChevronRight, Grid3x3, Search } from 'lucid
 import { useEffect, useState } from 'react'
 import type { SubdivisionMatrix } from '../../api/client'
 import { useFilters } from '../../context/FiltersContext'
+import { candidateColor } from '../../lib/colors'
 import { shortName } from '../../lib/format'
 import type { Entity } from '../../types'
 import { FOCUS_RING } from '../ui/focusRing'
@@ -36,7 +37,8 @@ export function TopicsBySubdivisionGrid({
   refetch,
   entities,
 }: Props) {
-  const { clearFilters } = useFilters()
+  const { clearFilters, candidateIds } = useFilters()
+  const heatColor = candidateIds[0] ? candidateColor(candidateIds[0]) : 'var(--color-primary)'
   const [page, setPage] = useState(0)
   const columns = matrix?.columns ?? []
   const paginated = columns.length > VISIBLE_COLUMNS
@@ -150,7 +152,7 @@ export function TopicsBySubdivisionGrid({
                           key={c.key}
                           className="flex h-[30px] min-w-0 flex-1 items-center justify-center rounded-lg text-[10px] font-bold"
                           style={{
-                            backgroundColor: `color-mix(in srgb, var(--color-primary) ${step * 100}%, var(--tint-primary))`,
+                            backgroundColor: `color-mix(in srgb, ${heatColor} ${step * 100}%, white)`,
                             color: step >= 0.5 ? '#fff' : 'var(--text-secondary)',
                           }}
                         >

@@ -4,7 +4,7 @@ import type { TopicRankingRow } from '../../api/client'
 import { NETWORKS } from '../../types'
 import type { Entity } from '../../types'
 import { useFilters } from '../../context/FiltersContext'
-import { candidateColor, sentimentColor } from '../../lib/colors'
+import { candidateColor, predominantSentiment, sentimentColor } from '../../lib/colors'
 import { Avatar } from '../ui/Avatar'
 import { IconTile } from '../ui/IconTile'
 import { TableCardSkeleton } from '../ui/skeletons'
@@ -41,7 +41,7 @@ export function TopTopicsTable({ rows, entities, loading, error, refetch }: Prop
         <IconTile icon={Grid3x3} tone="amber" size={36} />
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Top 10 tópicos do período
+            Top 10 tópicos de hoje
           </h2>
           <p className="text-xs text-[var(--text-muted)]">
             Todo tópico pertence a um candidato — o modelo gera conjuntos separados para
@@ -51,25 +51,11 @@ export function TopTopicsTable({ rows, entities, loading, error, refetch }: Prop
       </div>
 
       {!loading && !error && !isEmpty && (
-        <>
-          <div className="mt-4 mb-3 flex items-start gap-2 rounded-lg bg-[var(--tint-graphite)] px-3 py-2 text-xs text-[var(--text-secondary)]">
-            <Info size={14} className="mt-0.5 shrink-0" />
-            Meta Ads não aparece nesta tabela: anúncio pago é conteúdo do candidato, não
-            conversa do público.
-          </div>
-
-          <div className="mb-3 flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
-            {SENTIMENT_LEGEND.map((s) => (
-              <span key={s.key} className="flex items-center gap-1.5">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: sentimentColor(s.key) }}
-                />
-                {s.label}
-              </span>
-            ))}
-          </div>
-        </>
+        <div className="mt-4 mb-3 flex items-start gap-2 rounded-lg bg-[var(--tint-graphite)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+          <Info size={14} className="mt-0.5 shrink-0" />
+          Meta Ads não aparece nesta tabela: anúncio pago é conteúdo do candidato, não
+          conversa do público.
+        </div>
       )}
 
       <div className="mt-3">
@@ -105,7 +91,7 @@ export function TopTopicsTable({ rows, entities, loading, error, refetch }: Prop
                   <th className="pb-2 font-medium">Tópico e candidato</th>
                   <th className="pb-2 font-medium">Rede</th>
                   <th className="pb-2 font-medium">Menções</th>
-                  <th className="pb-2 font-medium">Sentimento</th>
+                  <th className="pb-2 text-center font-medium">Sentimento</th>
                   <th className="pb-2 font-medium" />
                 </tr>
               </thead>
@@ -116,7 +102,6 @@ export function TopTopicsTable({ rows, entities, loading, error, refetch }: Prop
                     row.sentiment.negative +
                       row.sentiment.neutral +
                       row.sentiment.positive || 1
-                  const negativePct = Math.round((row.sentiment.negative / total) * 100)
                   const color = candidateColor(row.topic.entityId)
 
                   return (
@@ -153,14 +138,30 @@ export function TopTopicsTable({ rows, entities, loading, error, refetch }: Prop
                         {row.mentions.toLocaleString('pt-BR')}
                       </td>
                       <td className="py-3">
-                        <div className="flex items-center gap-2">
-                          <SentimentBar
-                            sentiment={row.sentiment}
-                            className="max-w-[110px]"
-                          />
-                          <span className="text-xs text-[var(--text-secondary)]">
-                            {negativePct}%
-                          </span>
+                        <div className="mx-auto flex w-[220px] flex-col gap-1.5">
+                          <SentimentBar sentiment={row.sentiment} className="w-full" />
+                          <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
+                            {SENTIMENT_LEGEND.map((s) => {
+                              const isPredominant = predominantSentiment(row.sentiment).label === s.key
+                              return (
+                                <span
+                                  key={s.key}
+                                  className="flex items-center gap-1 text-[10px]"
+                                  style={{
+                                    color: isPredominant
+                                      ? sentimentColor(s.key)
+                                      : 'var(--text-secondary)',
+                                  }}
+                                >
+                                  <span
+                                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                    style={{ backgroundColor: sentimentColor(s.key) }}
+                                  />
+                                  {s.label} {Math.round((row.sentiment[s.key] / total) * 100)}%
+                                </span>
+                              )
+                            })}
+                          </div>
                         </div>
                       </td>
                       <td className="py-3 text-right">

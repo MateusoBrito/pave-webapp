@@ -25,46 +25,34 @@ export function ComparisonPage() {
   // nada foi escolhido ainda, usa o mesmo default que o chip mostra visualmente, sem
   // gravar no filtro global (evita afetar o que outras telas veem)
   const effectiveNetworks = networks.length > 0 ? networks : [DEFAULT_SINGLE_NETWORK]
-  const { data: entities = [], refetch: refetchEntities } = useAsync(
-    () => getEntities(),
-    [],
+  const { data: entities = [] } = useAsync(() => getEntities(), [])
+
+  const [selectedIds, setSelectedIds] = useState<string[]>()
+  // sem seleção do usuário ainda, começa com os 2 primeiros — depois disso quem manda é
+  // só o que está em selectedIds (inclusive vazio, se o usuário remover tudo)
+  const ids = (selectedIds ?? entities.slice(0, 2).map((e) => e.id)).filter((id) =>
+    entities.some((e) => e.id === id),
   )
-
-  const [entityAId, setEntityAId] = useState<string>()
-  const [entityBId, setEntityBId] = useState<string>()
-
-  const a = entityAId ?? entities[0]?.id
-  const b = entityBId ?? entities[1]?.id
-  const entityA = entities.find((e) => e.id === a)
-  const entityB = entities.find((e) => e.id === b)
+  const selectedEntities = ids
+    .map((id) => entities.find((e) => e.id === id))
+    .filter((e): e is NonNullable<typeof e> => Boolean(e))
 
   usePageHeader(
     'Comparativo',
-    entityA && entityB
-      ? `${entityA.name} × ${entityB.name} · ${formatDateRange(period)}`
+    selectedEntities.length > 0
+      ? `${selectedEntities.map((e) => e.name).join(' × ')} · ${formatDateRange(period)}`
       : formatDateRange(period),
   )
 
-  const deps = [a, b, period.from, period.to, effectiveNetworks.join(',')]
+  const deps = [ids.join(','), period.from, period.to, effectiveNetworks.join(',')]
 
   const {
-    data: summaryA,
-    loading: loadingA,
-    error: errorA,
-    refetch: refetchA,
+    data: summaries,
+    loading: summariesLoading,
+    error: summariesError,
+    refetch: refetchSummaries,
   } = useAsync(
-    () =>
-      a ? getComparisonSummary(a, period, effectiveNetworks) : Promise.resolve(undefined),
-    deps,
-  )
-  const {
-    data: summaryB,
-    loading: loadingB,
-    error: errorB,
-    refetch: refetchB,
-  } = useAsync(
-    () =>
-      b ? getComparisonSummary(b, period, effectiveNetworks) : Promise.resolve(undefined),
+    () => Promise.all(ids.map((id) => getComparisonSummary(id, period, effectiveNetworks))),
     deps,
   )
   const {
@@ -74,7 +62,9 @@ export function ComparisonPage() {
     refetch: refetchVolume,
   } = useAsync(
     () =>
-      a && b ? getVolumeOverTime([a, b], period, effectiveNetworks) : Promise.resolve([]),
+      ids.length > 0
+        ? getVolumeOverTime(ids, period, effectiveNetworks)
+        : Promise.resolve([]),
     deps,
   )
   const {
@@ -84,29 +74,18 @@ export function ComparisonPage() {
     refetch: refetchNegativeSentiment,
   } = useAsync(
     () =>
-      a && b
-        ? getNegativeSentimentOverTime([a, b], period, effectiveNetworks)
+      ids.length > 0
+        ? getNegativeSentimentOverTime(ids, period, effectiveNetworks)
         : Promise.resolve([]),
     deps,
   )
 
-  const pairEntities = [entityA, entityB].filter((e): e is NonNullable<typeof e> =>
-    Boolean(e),
-  )
-  const totalMentions = (summaryA?.mentions ?? 0) + (summaryB?.mentions ?? 0) || 1
-  const sharePctA = ((summaryA?.mentions ?? 0) / totalMentions) * 100
-  const sharePctB = ((summaryB?.mentions ?? 0) / totalMentions) * 100
+  const totalMentions =
+    (summaries ?? []).reduce((sum, s) => sum + (s?.mentions ?? 0), 0) || 1
 
   return (
     <>
-      <ComparisonEntityPicker
-        entities={entities}
-        aId={a}
-        bId={b}
-        onChangeA={setEntityAId}
-        onChangeB={setEntityBId}
-        onEntitiesChanged={refetchEntities}
-      />
+      <ComparisonEntityPicker entities={entities} selectedIds={ids} onChange={setSelectedIds} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <PeriodFilterCard />
@@ -117,42 +96,35 @@ export function ComparisonPage() {
         />
       </div>
 
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <ComparisonPanel
-          tag="A"
-          summary={summaryA}
-          sharePct={sharePctA}
-          loading={loadingA}
-          error={errorA}
-          refetch={refetchA}
-          network={effectiveNetworks[0]}
-          period={period}
-        />
-        <ComparisonPanel
-          tag="B"
-          summary={summaryB}
-          sharePct={sharePctB}
-          loading={loadingB}
-          error={errorB}
-          refetch={refetchB}
-          network={effectiveNetworks[0]}
-          period={period}
-        />
+      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {ids.map((id, i) => (
+          <ComparisonPanel
+            key={id}
+            tag={String.fromCharCode(65 + i)}
+            summary={summaries?.[i]}
+            sharePct={((summaries?.[i]?.mentions ?? 0) / totalMentions) * 100}
+            loading={summariesLoading}
+            error={summariesError}
+            refetch={refetchSummaries}
+            network={effectiveNetworks[0]}
+            period={period}
+          />
+        ))}
       </section>
 
       <VolumeOverTimeChart
-        entities={pairEntities}
+        entities={selectedEntities}
         points={volume}
         loading={volumeLoading}
         error={volumeError}
         refetch={refetchVolume}
         period={period}
         title="Volume comparado ao longo do tempo"
-        subtitle="Menções por dia, na mesma escala para os dois candidatos"
+        subtitle="Menções por dia, na mesma escala entre os candidatos"
       />
 
       <NegativeSentimentOverTimeChart
-        entities={pairEntities}
+        entities={selectedEntities}
         points={negativeSentiment}
         loading={negativeSentimentLoading}
         error={negativeSentimentError}

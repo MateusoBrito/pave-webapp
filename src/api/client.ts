@@ -8,9 +8,7 @@ import type {
   Topic,
   TopicDocument,
   TopicSentiment,
-  TopicSeriesPoint,
 } from '../types'
-import { getTrackedEntityIds } from '../lib/trackedEntities'
 import { apiGet, apiGetOptional, periodParams } from './http'
 
 export interface PeriodFilter {
@@ -19,25 +17,8 @@ export interface PeriodFilter {
   to: string
 }
 
-export async function getEntities(): Promise<Entity[]> {
-  const monitored = await apiGet<Entity[]>('/entities')
-  const trackedIds = getTrackedEntityIds()
-  if (trackedIds.length === 0) return monitored
-
-  const known = new Set(monitored.map((e) => e.id))
-  const pending = trackedIds.filter((id) => !known.has(id))
-  if (pending.length === 0) return monitored
-
-  const registry = await getCandidateRegistry()
-  const extras: Entity[] = registry
-    .filter((c) => pending.includes(c.id))
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      role: 'Cadastrado no registro',
-      aliases: [],
-    }))
-  return [...monitored, ...extras]
+export function getEntities(): Promise<Entity[]> {
+  return apiGet<Entity[]>('/entities')
 }
 
 export function getTopics(): Promise<Topic[]> {
@@ -51,22 +32,6 @@ export interface CollectionStatus {
 
 export function getCollectionStatus(): Promise<CollectionStatus> {
   return apiGet<CollectionStatus>('/collection/status')
-}
-
-export interface SeriesQuery {
-  entityIds?: string[]
-  networks?: Network[]
-  topicIds?: string[]
-  period: PeriodFilter
-}
-
-export function getTopicSeries(query: SeriesQuery): Promise<TopicSeriesPoint[]> {
-  return apiGet<TopicSeriesPoint[]>('/series', {
-    ...periodParams(query.period),
-    candidates: query.entityIds,
-    networks: query.networks,
-    topics: query.topicIds,
-  })
 }
 
 export interface CandidateVolumePoint {
@@ -165,12 +130,44 @@ export function getTopicRanking(
   period: PeriodFilter,
   networks: Network[] = [],
   limit?: number,
+  /** false = não cair no último dia disponível quando o dia pedido não tem modelo -
+   * usado em telas onde o usuário escolheu esse dia explicitamente (ver
+   * TopicsPage/DayFilterCard); default true (Visão Geral, sem dia explícito). */
+  dayFallback: boolean = true,
 ): Promise<TopicRankingRow[]> {
   return apiGet<TopicRankingRow[]>('/topics/ranking', {
     ...periodParams(period),
     candidates: entityIds,
     networks,
     limit,
+    day_fallback: dayFallback,
+  })
+}
+
+export interface TopicCalendarDay {
+  date: string
+  topLabel?: string
+  mentions?: number
+}
+
+export interface TopicCalendarEntity {
+  entityId: string
+  days: TopicCalendarDay[]
+}
+
+export interface TopicCalendarResult {
+  entities: TopicCalendarEntity[]
+}
+
+export function getTopicCalendar(
+  entityIds: string[],
+  network: Network,
+  period: PeriodFilter,
+): Promise<TopicCalendarResult> {
+  return apiGet<TopicCalendarResult>('/topics/calendar', {
+    ...periodParams(period),
+    candidates: entityIds,
+    network,
   })
 }
 
@@ -200,19 +197,30 @@ export function getTopicDetail(
   return apiGetOptional<TopicDetail>(`/topics/${encodeURIComponent(topicId)}`, { networks })
 }
 
+/** Evolução por hora do tópico no drill-down — não é CandidateVolumePoint (diário,
+ * usado por outras telas): `date` aqui carrega hora e minuto, um tópico já vive
+ * inteiro dentro de um único dia (modelagem diária). */
+export interface TopicHourlyVolumePoint {
+  date: string
+  entityId: string
+  mentions: number
+}
+
 export function getTopicCandidateSeries(
   topicId: string,
   entityIds: string[],
   period: PeriodFilter,
   networks: Network[] = [],
-): Promise<CandidateVolumePoint[]> {
+): Promise<TopicHourlyVolumePoint[]> {
   void entityIds
-  return apiGet<CandidateVolumePoint[]>(
+  return apiGet<TopicHourlyVolumePoint[]>(
     `/topics/${encodeURIComponent(topicId)}/series-by-candidate`,
     { ...periodParams(period), networks },
   )
 }
 
+/** Ponto do sentimento empilhado por hora do drill-down de tópico — `date` carrega
+ * hora e minuto, mesmo motivo de TopicHourlyVolumePoint. */
 export interface SentimentSeriesPoint {
   date: string
   sentiment: TopicSentiment
@@ -386,25 +394,6 @@ export function getAdTopicSeries(
   )
 }
 
-export interface AdCandidateBreakdownRow {
-  entity: Entity
-  investmentMinBRL: number
-  investmentMaxBRL: number
-  adsCount: number
-}
-
-export function getAdCandidateBreakdown(
-  entityIds: string[],
-  period: PeriodFilter,
-  platforms: MetaAdPlatform[] = [],
-): Promise<AdCandidateBreakdownRow[]> {
-  return apiGet<AdCandidateBreakdownRow[]>('/candidates/content/by-candidate', {
-    ...periodParams(period),
-    candidates: entityIds,
-    platforms,
-  })
-}
-
 export interface SubdivisionColumn {
   key: string
   label: string
@@ -529,17 +518,4 @@ export function getCandidateTopicList(
     `/candidates/${encodeURIComponent(entityId)}/topics`,
     { ...periodParams(period), network, search, filter, sort, limit },
   )
-}
-
-export interface RegistryCandidate {
-  id: string
-  name: string
-  apelidos: number
-  termos: number
-
-  monitorada: boolean
-}
-
-export function getCandidateRegistry(): Promise<RegistryCandidate[]> {
-  return apiGet<RegistryCandidate[]>('/registry/candidates')
 }

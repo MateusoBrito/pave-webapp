@@ -28,10 +28,11 @@ import { StatusCard } from '../components/ui/StatusCard'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
-import type { SentimentLabel } from '../types'
+import { NETWORKS } from '../types'
+import type { Network, SentimentLabel } from '../types'
 import { peakDay } from '../lib/chartData'
-import { formatDateRange, formatShortDate } from '../lib/dates'
-import { formatCompactNumber, formatPercent, formatSignedPercent } from '../lib/format'
+import { allTimePeriod, formatShortDate } from '../lib/dates'
+import { formatCompactNumber, formatPercent } from '../lib/format'
 
 const SENTIMENT_LABEL: Record<SentimentLabel, string> = {
   negative: 'Negativo',
@@ -48,13 +49,33 @@ const HIGHLIGHT_STYLE: Record<string, { icon: LucideIcon; tone: IconTone }> = {
   network_growth: { icon: ArrowUpRight, tone: 'green' },
 }
 
+// Meta Ads não tem sentimento (é anúncio, não postagem com reação) — o agregado de
+// sentimento só soma Reddit e YouTube. Esse texto precisa acompanhar o filtro de rede
+// em vez de citar as duas sempre, senão fica errado ao filtrar só uma delas.
+const ORGANIC_NETWORKS: Network[] = ['reddit', 'youtube']
+
+function organicSentimentNote(networks: Network[]): string {
+  const active =
+    networks.length === 0
+      ? ORGANIC_NETWORKS
+      : networks.filter((n) => ORGANIC_NETWORKS.includes(n))
+
+  if (active.length === 0) return 'Meta Ads não tem sentimento — selecione Reddit ou YouTube'
+  if (active.length === ORGANIC_NETWORKS.length) {
+    return 'Soma de Reddit e YouTube · anúncios da Meta não entram'
+  }
+  const label = NETWORKS.find((n) => n.id === active[0])?.label ?? active[0]
+  return `Só ${label} · anúncios da Meta não entram`
+}
+
 
 export function OverviewPage() {
-  const { candidateIds, networks, period } = useFilters()
-  usePageHeader(
-    'Visão Geral',
-    `O que está movimentando a conversa eleitoral? · ${formatDateRange(period)}`,
-  )
+  const { candidateIds, networks } = useFilters()
+  // Sem seletor de período aqui - a Visão Geral sempre mostra tudo que o Postgres
+  // retém (ver allTimePeriod). Escolher um período específico é papel das outras
+  // telas, agora que os tópicos são por dia (ver PeriodFilterCard/DayFilterCard).
+  const period = allTimePeriod()
+  usePageHeader('Visão Geral', 'O que está movimentando a conversa eleitoral?')
 
   const { data: entities = [] } = useAsync(() => getEntities(), [])
   const selectedEntities =
@@ -143,12 +164,6 @@ export function OverviewPage() {
               tone="purple"
               label="Menções coletadas"
               value={formatCompactNumber(summary.totalMentions)}
-              subtext={`${formatSignedPercent(summary.deltaPct)} vs. período anterior`}
-              subtextColor={
-                summary.deltaPct >= 0
-                  ? 'var(--tint-text-green)'
-                  : 'var(--tint-text-coral)'
-              }
             />
             <KpiCard
               icon={Thermometer}
@@ -162,7 +177,7 @@ export function OverviewPage() {
                     )} neutro · ${formatPercent((sentiment.positive / sentimentTotal) * 100)} positivo`
                   : undefined
               }
-              subtextSecondary="Soma de Reddit e YouTube · anúncios da Meta não entram"
+              subtextSecondary={organicSentimentNote(networks)}
             />
             <KpiCard
               icon={Flame}

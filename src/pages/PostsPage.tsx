@@ -1,46 +1,40 @@
 import { useState } from 'react'
-import { Eye, Info, Megaphone, Wallet } from 'lucide-react'
+import { Eye, Megaphone, Wallet } from 'lucide-react'
 import {
-  getAdCandidateBreakdown,
   getAdTopicRanking,
   getCandidateContentSummary,
   getCandidatePosts,
   getEntities,
   getTopics,
-  getVolumeOverTime,
 } from '../api/client'
-import { AdCandidateBreakdown } from '../components/dashboard/AdCandidateBreakdown'
 import { AdExamplesCarousel } from '../components/dashboard/AdExamplesCarousel'
-import { AdTopicRankingList } from '../components/dashboard/AdTopicRankingList'
+import { AdsTimelineChart } from '../components/dashboard/AdsTimelineChart'
 import { KpiCard } from '../components/dashboard/KpiCard'
-import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
 import { CandidateAvatarFilter } from '../components/filters/CandidateAvatarFilter'
 import { MetaPlatformFilter } from '../components/filters/MetaPlatformFilter'
-import { PeriodFilterCard } from '../components/filters/PeriodFilterCard'
-import { IconTile } from '../components/ui/IconTile'
 import { KpiCardSkeleton } from '../components/ui/skeletons'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
+import { formatFullDate } from '../lib/dates'
 import { formatBRLRange } from '../lib/format'
 import type { MetaAdPlatform } from '../types'
 
 export function PostsPage() {
-  const { candidateIds, period } = useFilters()
+  const { candidateIds, day } = useFilters()
   const [platforms, setPlatforms] = useState<MetaAdPlatform[]>([])
+  // Um dia só, igual "O que os usuários comentam?" - a modelagem de tópicos de
+  // anúncio é diária também (mesmo schema modelo/topico, só fonte_codigo='meta').
+  const period = { from: day, to: day }
   usePageHeader(
     'O que os candidatos postam?',
-    'Anúncios pagos publicados pelos próprios candidatos, via Meta Ad Library',
+    `Anúncios pagos publicados pelos próprios candidatos, via Meta Ad Library · ${formatFullDate(day)}`,
   )
 
   const deps = [candidateIds.join(','), period.from, period.to, platforms.join(',')]
 
   const { data: entities = [] } = useAsync(() => getEntities(), [])
   const { data: topics = [] } = useAsync(() => getTopics(), [])
-  const selectedEntities =
-    candidateIds.length === 0
-      ? entities
-      : entities.filter((e) => candidateIds.includes(e.id))
 
   const {
     data: summary,
@@ -49,23 +43,10 @@ export function PostsPage() {
     refetch: refetchSummary,
   } = useAsync(() => getCandidateContentSummary(candidateIds, period, platforms), deps)
   const {
-    data: volume = [],
-    loading: volumeLoading,
-    error: volumeError,
-    refetch: refetchVolume,
-  } = useAsync(() => getVolumeOverTime(candidateIds, period, ['meta_ads']), deps)
-  const {
     data: ranking = [],
     loading: rankingLoading,
     error: rankingError,
-    refetch: refetchRanking,
   } = useAsync(() => getAdTopicRanking(candidateIds, period, platforms), deps)
-  const {
-    data: breakdown = [],
-    loading: breakdownLoading,
-    error: breakdownError,
-    refetch: refetchBreakdown,
-  } = useAsync(() => getAdCandidateBreakdown(candidateIds, period, platforms), deps)
   const {
     data: documents = [],
     loading: documentsLoading,
@@ -75,19 +56,9 @@ export function PostsPage() {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <CandidateAvatarFilter />
-        <PeriodFilterCard />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <CandidateAvatarFilter singleSelect />
         <MetaPlatformFilter value={platforms} onChange={setPlatforms} />
-      </div>
-
-      <div className="flex items-center gap-[11px] rounded-[14px] border border-[var(--baseline)] bg-[var(--tint-blue)] px-[18px] py-[13px]">
-        <IconTile icon={Info} tone="blue" size={30} />
-        <p className="flex-1 text-[11px] leading-relaxed text-[var(--tint-text-blue)]">
-          Aqui o conteúdo é do próprio candidato, não do público: são anúncios pagos
-          declarados na Meta Ad Library. Por isso esta tela não traz análise de sentimento
-          — não há reação pública coletável nos anúncios.
-        </p>
       </div>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -137,33 +108,12 @@ export function PostsPage() {
         </p>
       )}
 
-      <VolumeOverTimeChart
-        entities={selectedEntities}
-        points={volume}
-        loading={volumeLoading}
-        error={volumeError}
-        refetch={refetchVolume}
-        period={period}
-        icon={Megaphone}
-        tone="blue"
-        title="Evolução dos anúncios ao longo do tempo"
-        subtitle="Volume diário de atividade em anúncios, por candidato"
+      <AdsTimelineChart
+        entities={entities}
+        rankingRows={ranking}
+        rankingLoading={rankingLoading}
+        rankingError={rankingError}
       />
-
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <AdTopicRankingList
-          rows={ranking}
-          loading={rankingLoading}
-          error={rankingError}
-          refetch={refetchRanking}
-        />
-        <AdCandidateBreakdown
-          rows={breakdown}
-          loading={breakdownLoading}
-          error={breakdownError}
-          refetch={refetchBreakdown}
-        />
-      </section>
 
       <AdExamplesCarousel
         documents={documents}
