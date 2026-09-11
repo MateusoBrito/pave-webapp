@@ -13,6 +13,8 @@ from fastapi import Depends, HTTPException, Query, status
 
 from .schemas.domain import ORGANIC_NETWORKS, MetaAdPlatform, Network
 
+from app.db import get_session
+
 MAX_PERIOD_DAYS = 366
 
 
@@ -128,3 +130,7 @@ def organic_scope(selected: list[Network] = Depends(networks)) -> OrganicScope:
         return OrganicScope(networks=list(ORGANIC_NETWORKS), empty=False)
     organic = [n for n in selected if n != Network.META_ADS]
     return OrganicScope(networks=organic, empty=not organic)
+
+async def get_db():
+    async for session in get_session():
+        yield session

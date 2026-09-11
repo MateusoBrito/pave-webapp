@@ -21,6 +21,8 @@ from typing import Any
 from sqlalchemy import Integer, cast, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.orm import Session
+from app.models import CandidatoHashtag
 
 from ..models import Documento
 
@@ -118,4 +120,13 @@ def has_platform(platform: str) -> ColumnElement:
             cast([platform], JSONB)
         ),
         False,
+    )
+
+def get_top_hashtags_por_entidade(db: Session, entidade_codigo: str, limite: int = 20):
+    return (
+        db.query(CandidatoHashtag)
+        .filter(CandidatoHashtag.entidade_codigo == entidade_codigo)
+        .order_by(CandidatoHashtag.contagem.desc())
+        .limit(limite)
+        .all()
     )

@@ -10,7 +10,7 @@ from datetime import date as Date
 from datetime import datetime as DateTime
 from enum import Enum
 
-from pydantic import Field
+from pydantic import Field, BaseModel
 
 from .base import ApiModel
 from .domain import (
@@ -298,3 +298,8 @@ class TopicCalendarResult(ApiModel):
     numa janela de dias."""
 
     entities: list[TopicCalendarEntity]
+
+class HashtagResponse(BaseModel):
+    hashtag: str
+    contagem: int
+    fonte_codigo: str | None = None

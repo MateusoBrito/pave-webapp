@@ -22,6 +22,7 @@ import { MentionsByNetworkChart } from '../components/dashboard/MentionsByNetwor
 import { ShareOfVoiceChart } from '../components/dashboard/ShareOfVoiceChart'
 import { TopTopicsTable } from '../components/dashboard/TopTopicsTable'
 import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
+import { HashtagCloud } from '../components/dashboard/HashtagCloud'
 import type { IconTone } from '../components/ui/IconTile'
 import { KpiCardSkeleton } from '../components/ui/skeletons'
 import { StatusCard } from '../components/ui/StatusCard'
@@ -202,6 +203,7 @@ export function OverviewPage() {
         )}
       </section>
 
+
       <VolumeOverTimeChart
         entities={selectedEntities}
         points={volume}
@@ -227,6 +229,8 @@ export function OverviewPage() {
           refetch={refetchShare}
         />
       </section>
+
+      <HashtagCloud entities={selectedEntities} />
 
       <TopTopicsTable
         groups={gruposDeTopicos}

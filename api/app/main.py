@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .auth import current_user, init_firebase
 from .config import Settings, get_settings
 from .db import dispose_engine, get_session, init_engine
-from .routers import ads, catalog, comparison, network_documents, series, topics
+from .routers import ads, catalog, comparison, network_documents, series, topics, hashtags
 
 logger = logging.getLogger(__name__)
 
@@ -106,3 +106,4 @@ app.include_router(topics.router, dependencies=_auth_dep)
 app.include_router(comparison.router, dependencies=_auth_dep)
 app.include_router(ads.router, dependencies=_auth_dep)
 app.include_router(network_documents.router, dependencies=_auth_dep)
+app.include_router(hashtags.router, dependencies=_auth_dep)

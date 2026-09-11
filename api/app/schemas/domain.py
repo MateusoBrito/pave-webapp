@@ -7,7 +7,7 @@ from datetime import date as Date
 from datetime import datetime
 from enum import Enum
 
-from pydantic import Field
+from pydantic import Field, BaseModel
 
 from .base import ApiModel
 
@@ -183,3 +183,11 @@ class RegistryCandidate(ApiModel):
     apelidos: int
     termos: int
     monitorada: bool = True
+
+class HashtagResponse(BaseModel):
+    hashtag: str
+    contagem: int
+    fonte_codigo: str
+
+    class Config:
+        from_attributes = True

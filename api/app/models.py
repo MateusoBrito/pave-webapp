@@ -20,6 +20,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    UniqueConstraint
 )
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB
@@ -229,3 +230,17 @@ class DocumentoTopico(Base):
     )
 
     __table_args__ = (Index("idx_doc_topico_topico", topico_id),)
+
+
+class CandidatoHashtag(Base):
+    __tablename__ = 'candidato_hashtag'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fonte_codigo = Column(String(50), nullable=False)
+    entidade_codigo = Column(String(50), nullable=False)
+    hashtag = Column(String(100), nullable=False)
+    contagem = Column(Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint('fonte_codigo', 'entidade_codigo', 'hashtag', name='uix_candidato_hashtag'),
+    )
