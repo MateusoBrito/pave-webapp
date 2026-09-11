@@ -31,6 +31,19 @@ const FILTER_LABEL: Record<Filter, string> = {
   declining: 'Em queda',
 }
 
+/** Só "Todos" aparece hoje.
+ *
+ * "Emergentes" e "Em queda" voltavam vazios em qualquer cenário, e não por falta de
+ * dado: a modelagem não mantém identidade de tópico entre execuções. Um mesmo tema
+ * ganha número novo a cada rodada (3431.. num período, 3446.. no seguinte), então a
+ * variação, que casa `(topico_id, entidade)` com o período anterior, nunca acha o par
+ * e sai 0 — e `topic.emergent` é sempre null por decisão explícita (ver topic_emergent
+ * em api/app/queries/base.py, que prefere não afirmar nada a marcar todo tópico).
+ *
+ * Repor os dois na lista assim que o pipeline alinhar tópicos entre rodadas; o filtro
+ * continua implementado dos dois lados (ver comparison.py). */
+const FILTROS_VISIVEIS: Filter[] = ['all']
+
 interface Props {
   open: boolean
   onClose: () => void
@@ -179,25 +192,27 @@ export function CandidateTopicsModal({
             className="w-full bg-transparent text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </label>
-        <div className="flex items-center gap-1.5">
-          {(Object.keys(FILTER_LABEL) as Filter[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => {
-                setFilter(key)
-                setLimit(PAGE_SIZE)
-              }}
-              className={`rounded-[9px] px-3 py-2 text-[11px] font-semibold transition-colors ${FOCUS_RING} ${
-                filter === key
-                  ? 'bg-[var(--color-primary)] text-white'
-                  : 'bg-[var(--gridline)] text-[var(--text-secondary)] hover:brightness-95'
-              }`}
-            >
-              {FILTER_LABEL[key]}
-            </button>
-          ))}
-        </div>
+        {FILTROS_VISIVEIS.length > 1 && (
+          <div className="flex items-center gap-1.5">
+            {FILTROS_VISIVEIS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setFilter(key)
+                  setLimit(PAGE_SIZE)
+                }}
+                className={`rounded-[9px] px-3 py-2 text-[11px] font-semibold transition-colors ${FOCUS_RING} ${
+                  filter === key
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-[var(--gridline)] text-[var(--text-secondary)] hover:brightness-95'
+                }`}
+              >
+                {FILTER_LABEL[key]}
+              </button>
+            ))}
+          </div>
+        )}
         <span className="flex-1" />
         <label className="relative flex items-center gap-1.5 rounded-[10px] border border-[var(--baseline)] px-3 py-2.5 text-[11px] font-semibold text-[var(--text-secondary)]">
           <select

@@ -263,6 +263,8 @@ export interface CandidateSentimentPoint {
   date: string
   entityId: string
   negativePct: number
+  /** contagens dos três rótulos no dia — o Comparativo empilha por candidato */
+  sentiment: TopicSentiment
 }
 
 export function getNegativeSentimentOverTime(

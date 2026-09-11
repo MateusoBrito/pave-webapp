@@ -177,12 +177,16 @@ class ComparisonCandidateSummary(ApiModel):
 
 
 class CandidateSentimentPoint(ApiModel):
-    """GET /comparison/negative-sentiment-series — % negativo por dia, por candidato.
-    Meta Ads não tem sentimento; sempre excluído."""
+    """GET /comparison/negative-sentiment-series — sentimento por dia, por candidato.
+    Meta Ads não tem sentimento; sempre excluído.
+
+    `negative_pct` é a série comparável entre candidatos; `sentiment` traz as contagens
+    dos três rótulos no dia, que o Comparativo empilha por candidato."""
 
     date: Date
     entity_id: str
     negative_pct: float
+    sentiment: TopicSentiment = TopicSentiment()
 
 
 class CandidateSentimentSummary(ApiModel):

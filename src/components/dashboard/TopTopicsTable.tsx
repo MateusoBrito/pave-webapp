@@ -1,6 +1,7 @@
 import { AlertTriangle, Grid3x3, Info, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { TopicRankingRow } from '../../api/client'
+import type { GrupoDeRanking } from '../../lib/ranking'
 import { NETWORKS } from '../../types'
 import type { Entity } from '../../types'
 import { useFilters } from '../../context/FiltersContext'
@@ -12,7 +13,7 @@ import { StatusCard } from '../ui/StatusCard'
 import { SentimentBar } from './SentimentBar'
 
 interface Props {
-  rows: TopicRankingRow[]
+  groups: GrupoDeRanking<TopicRankingRow>[]
   entities: Entity[]
   loading: boolean
   error?: Error
@@ -30,10 +31,10 @@ const SENTIMENT_LEGEND: { key: 'positive' | 'neutral' | 'negative'; label: strin
 ]
 
 /** Fluxo de navegação: Visão Geral → "Ver detalhes" → drill-down do tópico. */
-export function TopTopicsTable({ rows, entities, loading, error, refetch }: Props) {
+export function TopTopicsTable({ groups, entities, loading, error, refetch }: Props) {
   const navigate = useNavigate()
   const { clearFilters } = useFilters()
-  const isEmpty = !loading && !error && rows.length === 0
+  const isEmpty = !loading && !error && groups.length === 0
 
   return (
     <section className="rounded-2xl border border-[var(--baseline)] bg-[var(--chart-surface)] p-5">
@@ -41,8 +42,15 @@ export function TopTopicsTable({ rows, entities, loading, error, refetch }: Prop
         <IconTile icon={Grid3x3} tone="amber" size={36} />
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Top 10 tópicos de hoje
+            Principais tópicos de hoje
           </h2>
+          {/* Com mais de um candidato a lista é por candidato, não os dez maiores em
+              volume (ver agruparPorEntidade) — o rótulo precisa dizer isso. */}
+          {groups.length > 1 && (
+            <p className="text-xs text-[var(--text-muted)]">
+              Os mais falados de cada candidato · menções não se comparam entre eles
+            </p>
+          )}
         </div>
       </div>
 
@@ -91,90 +99,123 @@ export function TopTopicsTable({ rows, entities, loading, error, refetch }: Prop
                   <th className="pb-2 font-medium" />
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const entity = entities.find((e) => e.id === row.topic.entityId)
-                  const total =
-                    row.sentiment.negative +
-                      row.sentiment.neutral +
-                      row.sentiment.positive || 1
-                  const color = candidateColor(row.topic.entityId)
+              {groups.map((grupo) => {
+                const dono = entities.find((e) => e.id === grupo.entityId)
+                const corDono = candidateColor(grupo.entityId)
+                return (
+                  <tbody key={grupo.entityId}>
+                    {groups.length > 1 && (
+                      <tr>
+                        <td colSpan={5} className="pt-5 pb-2">
+                          <div className="flex items-center gap-2.5">
+                            <Avatar
+                              name={dono?.name ?? '?'}
+                              color={corDono}
+                              size={26}
+                              photoUrl={dono?.photoUrl}
+                            />
+                            <span className="text-[13px] font-semibold text-[var(--text-primary)]">
+                              {dono?.name ?? grupo.entityId}
+                            </span>
+                            <span className="text-xs text-[var(--text-muted)]">
+                              {grupo.total.toLocaleString('pt-BR')} menções no período
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {grupo.rows.map((row) => {
+                      const entity = entities.find((e) => e.id === row.topic.entityId)
+                      const total =
+                        row.sentiment.negative +
+                          row.sentiment.neutral +
+                          row.sentiment.positive || 1
+                      const color = candidateColor(row.topic.entityId)
 
-                  return (
-                    <tr
-                      key={row.topic.id}
-                      className="border-b border-[var(--gridline)] last:border-0"
-                    >
-                      <td className="py-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar
-                            name={entity?.name ?? '?'}
-                            color={color}
-                            size={32}
-                            photoUrl={entity?.photoUrl}
-                          />
-                          <div>
-                            <p className="font-medium text-[var(--text-primary)]">
-                              {row.topic.label}
-                            </p>
-                            <p className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                              <span
-                                className="h-1.5 w-1.5 rounded-full"
-                                style={{ backgroundColor: color }}
-                              />
-                              {entity?.name}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 text-[var(--text-secondary)]">
-                        {networkLabel(row.dominantNetwork)}
-                      </td>
-                      <td className="py-3 text-[var(--text-primary)]">
-                        {row.mentions.toLocaleString('pt-BR')}
-                      </td>
-                      <td className="py-3">
-                        <div className="mx-auto flex w-[220px] flex-col gap-1.5">
-                          <SentimentBar sentiment={row.sentiment} className="w-full" />
-                          <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
-                            {SENTIMENT_LEGEND.map((s) => {
-                              const isPredominant = predominantSentiment(row.sentiment).label === s.key
-                              return (
-                                <span
-                                  key={s.key}
-                                  className="flex items-center gap-1 text-[10px]"
-                                  style={{
-                                    color: isPredominant
-                                      ? sentimentColor(s.key)
-                                      : 'var(--text-secondary)',
-                                  }}
-                                >
-                                  <span
-                                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                                    style={{ backgroundColor: sentimentColor(s.key) }}
-                                  />
-                                  {s.label} {Math.round((row.sentiment[s.key] / total) * 100)}%
-                                </span>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(`/topicos/${row.topic.id}`, { state: { from: '/' } })
-                          }
-                          className="rounded-full bg-[var(--tint-primary)] px-3 py-1 text-xs font-medium text-[var(--color-primary-dark)] hover:brightness-95"
+                      return (
+                        <tr
+                          key={row.topic.id}
+                          className="border-b border-[var(--gridline)] last:border-0"
                         >
-                          Ver detalhes ›
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
+                          <td className="py-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar
+                                name={entity?.name ?? '?'}
+                                color={color}
+                                size={32}
+                                photoUrl={entity?.photoUrl}
+                              />
+                              <div>
+                                <p className="font-medium text-[var(--text-primary)]">
+                                  {row.topic.label}
+                                </p>
+                                <p className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                                  <span
+                                    className="h-1.5 w-1.5 rounded-full"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  {entity?.name}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 text-[var(--text-secondary)]">
+                            {networkLabel(row.dominantNetwork)}
+                          </td>
+                          <td className="py-3 text-[var(--text-primary)]">
+                            {row.mentions.toLocaleString('pt-BR')}
+                          </td>
+                          <td className="py-3">
+                            <div className="mx-auto flex w-[220px] flex-col gap-1.5">
+                              <SentimentBar
+                                sentiment={row.sentiment}
+                                className="w-full"
+                              />
+                              <div className="flex flex-wrap gap-x-2.5 gap-y-0.5">
+                                {SENTIMENT_LEGEND.map((s) => {
+                                  const isPredominant =
+                                    predominantSentiment(row.sentiment).label === s.key
+                                  return (
+                                    <span
+                                      key={s.key}
+                                      className="flex items-center gap-1 text-[10px]"
+                                      style={{
+                                        color: isPredominant
+                                          ? sentimentColor(s.key)
+                                          : 'var(--text-secondary)',
+                                      }}
+                                    >
+                                      <span
+                                        className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                        style={{ backgroundColor: sentimentColor(s.key) }}
+                                      />
+                                      {s.label}{' '}
+                                      {Math.round((row.sentiment[s.key] / total) * 100)}%
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(`/topicos/${row.topic.id}`, {
+                                  state: { from: '/' },
+                                })
+                              }
+                              className="rounded-full bg-[var(--tint-primary)] px-3 py-1 text-xs font-medium text-[var(--color-primary-dark)] hover:brightness-95"
+                            >
+                              Ver detalhes ›
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                )
+              })}
             </table>
           </div>
         )}

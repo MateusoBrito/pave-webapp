@@ -90,9 +90,11 @@ const SOURCES = [
   {
     network: 'youtube',
     name: 'YouTube',
-    collected: 'Comentários em vídeos dos canais oficiais dos candidatos',
+    collected:
+      'Comentários em vídeos de canais de notícias que citam os candidatos',
     how: 'Data API v3',
-    limitation: 'Quota diária limitada: dias de pico podem vir amostrados',
+    limitation:
+      'O recorte depende de quais canais entram na lista; a quota diária é limitada, então dias de pico podem vir amostrados',
   },
   {
     network: 'reddit',

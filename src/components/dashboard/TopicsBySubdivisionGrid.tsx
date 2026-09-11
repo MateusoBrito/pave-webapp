@@ -26,7 +26,7 @@ interface Props {
 }
 
 /** "Tópicos por subreddit" / "Tópicos por canal" — mesma visualização de heatmap para
- * as duas redes; no YouTube as colunas (canais oficiais dos candidatos) cabem todas de
+ * as duas redes; no YouTube as colunas (canais de notícias coletados) cabem todas de
  * uma vez, no Reddit (8 subreddits fixos) elas são paginadas de 3 em 3. */
 export function TopicsBySubdivisionGrid({
   matrix,

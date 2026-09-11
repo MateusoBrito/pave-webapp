@@ -33,14 +33,6 @@ export function TopicsPage() {
   // forma que a API espera (from/to), só que os dois iguais.
   const period = { from: day, to: day }
 
-  /** A matriz tópico × subdivisão só diz algo quando o tópico pode aparecer em mais de
-   * uma coluna. No Reddit as colunas são subreddits e ele pode. No YouTube a coluna é o
-   * canal oficial — um por candidato — e tópico pertence a um candidato só, então toda
-   * linha teria exatamente uma célula preenchida e o resto zero. Isso não é dado ralo, é
-   * o eixo das colunas duplicando o de propriedade: a diagonal sai imposta por
-   * construção, e o TopicsTimelineChart acima já mostra tópico, dono e volume. */
-  const mostraSubdivisao = network === 'reddit'
-
   usePageHeader(
     'O que os usuários comentam?',
     `Comentários e publicações do público no ${NETWORK_LABEL[network]} · ${formatFullDate(day)}`,
@@ -60,13 +52,7 @@ export function TopicsPage() {
     loading: matrixLoading,
     error: matrixError,
     refetch: refetchMatrix,
-  } = useAsync(
-    () =>
-      mostraSubdivisao
-        ? getTopicsBySubdivision(candidateIds, period, network)
-        : Promise.resolve(undefined),
-    deps,
-  )
+  } = useAsync(() => getTopicsBySubdivision(candidateIds, period, network), deps)
   const { data: candidateSentiment = [] } = useAsync(
     () => getCandidateSentimentBreakdown(candidateIds, period, [network]),
     deps,
@@ -89,19 +75,25 @@ export function TopicsPage() {
         sentiment={candidateSentiment}
       />
 
-      {mostraSubdivisao && (
-        <section className="grid grid-cols-1 gap-6">
-          <TopicsBySubdivisionGrid
-            matrix={matrix}
-            title="Tópicos por subreddit"
-            subtitle="Onde cada tema circula dentro do Reddit"
-            entities={entities}
-            loading={matrixLoading}
-            error={matrixError}
-            refetch={refetchMatrix}
-          />
-        </section>
-      )}
+      {/* Vale nas duas redes: no Reddit as colunas são subreddits, no YouTube são os
+          canais de notícias de onde vêm os comentários (BBC, CNN, Jovem Pan...), que
+          cobrem todos os candidatos. Medido em 20/08: 8 colunas no YouTube contra 2 no
+          Reddit — ver alvo_coleta.canal. */}
+      <section className="grid grid-cols-1 gap-6">
+        <TopicsBySubdivisionGrid
+          matrix={matrix}
+          title={network === 'reddit' ? 'Tópicos por subreddit' : 'Tópicos por canal'}
+          subtitle={
+            network === 'reddit'
+              ? 'Onde cada tema circula dentro do Reddit'
+              : 'Em quais canais de notícias cada tema aparece'
+          }
+          entities={entities}
+          loading={matrixLoading}
+          error={matrixError}
+          refetch={refetchMatrix}
+        />
+      </section>
 
       <TopicExamplePosts
         documents={documents}

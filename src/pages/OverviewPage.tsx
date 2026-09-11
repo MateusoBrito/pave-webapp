@@ -31,6 +31,7 @@ import { useAsync } from '../hooks'
 import { NETWORKS } from '../types'
 import type { Network, SentimentLabel } from '../types'
 import { peakDay } from '../lib/chartData'
+import { agruparPorEntidade } from '../lib/ranking'
 import { allTimePeriod, formatShortDate } from '../lib/dates'
 import { formatCompactNumber, formatPercent } from '../lib/format'
 
@@ -114,7 +115,16 @@ export function OverviewPage() {
     loading: rankingLoading,
     error: rankingError,
     refetch: refetchRanking,
-  } = useAsync(() => getTopicRanking(candidateIds, period, networks, 10), deps)
+    // Sem `limit`: o corte sai por candidato, depois do agrupamento. Cortado no servidor,
+    // o top 10 vinha inteiro do candidato de maior volume (ver agruparPorEntidade).
+  } = useAsync(() => getTopicRanking(candidateIds, period, networks), deps)
+  // Com um candidato só não há com quem dividir a lista — mantém a profundidade de antes.
+  const gruposDeTopicos = agruparPorEntidade(
+    ranking,
+    (r) => r.topic.entityId,
+    (r) => r.mentions,
+    selectedEntities.length > 1 ? 3 : 10,
+  )
   const { data: highlights = [] } = useAsync(
     () => getHighlights(candidateIds, period, networks),
     deps,
@@ -147,7 +157,9 @@ export function OverviewPage() {
               secondaryAction={{
                 label: `Copiar código do erro · ${(summaryError || volumeError)?.message || '500'}`,
                 onClick: () =>
-                  navigator.clipboard?.writeText((summaryError || volumeError)?.message || '500'),
+                  navigator.clipboard?.writeText(
+                    (summaryError || volumeError)?.message || '500',
+                  ),
               }}
             />
           </div>
@@ -217,7 +229,7 @@ export function OverviewPage() {
       </section>
 
       <TopTopicsTable
-        rows={ranking}
+        groups={gruposDeTopicos}
         entities={entities}
         loading={rankingLoading}
         error={rankingError}

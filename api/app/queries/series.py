@@ -224,7 +224,8 @@ async def negative_sentiment_over_time(
             dia,
             AlvoColeta.entidade_codigo.label("entidade"),
             NEGATIVE.label("negative"),
-            (NEGATIVE + NEUTRAL + POSITIVE).label("classificados"),
+            NEUTRAL.label("neutral"),
+            POSITIVE.label("positive"),
             start=period.start,
             end=period.end,
             entity_ids=entity_ids,
@@ -236,14 +237,23 @@ async def negative_sentiment_over_time(
     )
 
     rows = (await session.execute(stmt)).all()
-    return [
-        CandidateSentimentPoint(
-            date=row.dia,
-            entity_id=row.entidade,
-            negative_pct=(row.negative / row.classificados * 100) if row.classificados else 0.0,
+    pontos: list[CandidateSentimentPoint] = []
+    for row in rows:
+        negative = row.negative or 0
+        neutral = row.neutral or 0
+        positive = row.positive or 0
+        classificados = negative + neutral + positive
+        pontos.append(
+            CandidateSentimentPoint(
+                date=row.dia,
+                entity_id=row.entidade,
+                negative_pct=(negative / classificados * 100) if classificados else 0.0,
+                sentiment=TopicSentiment(
+                    negative=negative, neutral=neutral, positive=positive
+                ),
+            )
         )
-        for row in rows
-    ]
+    return pontos
 
 
 async def sentiment_series(
