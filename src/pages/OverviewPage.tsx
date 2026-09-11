@@ -28,10 +28,11 @@ import { StatusCard } from '../components/ui/StatusCard'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
-import { NETWORKS, type Network, type SentimentLabel } from '../types'
+import { NETWORKS } from '../types'
+import type { Network, SentimentLabel } from '../types'
 import { peakDay } from '../lib/chartData'
-import { formatDateRange, formatShortDate } from '../lib/dates'
-import { formatCompactNumber, formatPercent, formatSignedPercent } from '../lib/format'
+import { allTimePeriod, formatShortDate } from '../lib/dates'
+import { formatCompactNumber, formatPercent } from '../lib/format'
 
 const SENTIMENT_LABEL: Record<SentimentLabel, string> = {
   negative: 'Negativo',
@@ -69,11 +70,12 @@ function organicScopeNote(networks: Network[]): string {
 }
 
 export function OverviewPage() {
-  const { candidateIds, networks, period } = useFilters()
-  usePageHeader(
-    'Visão Geral',
-    `O que está movimentando a conversa eleitoral? · ${formatDateRange(period)}`,
-  )
+  const { candidateIds, networks } = useFilters()
+  // Sem seletor de período aqui - a Visão Geral sempre mostra tudo que o Postgres
+  // retém (ver allTimePeriod). Escolher um período específico é papel das outras
+  // telas, agora que os tópicos são por dia (ver PeriodFilterCard/DayFilterCard).
+  const period = allTimePeriod()
+  usePageHeader('Visão Geral', 'O que está movimentando a conversa eleitoral?')
 
   const { data: entities = [] } = useAsync(() => getEntities(), [])
   const selectedEntities =
@@ -162,12 +164,6 @@ export function OverviewPage() {
               tone="purple"
               label="Menções coletadas"
               value={formatCompactNumber(summary.totalMentions)}
-              subtext={`${formatSignedPercent(summary.deltaPct)} vs. período anterior`}
-              subtextColor={
-                summary.deltaPct >= 0
-                  ? 'var(--tint-text-green)'
-                  : 'var(--tint-text-coral)'
-              }
             />
             <KpiCard
               icon={Thermometer}

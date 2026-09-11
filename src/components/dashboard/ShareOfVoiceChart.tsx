@@ -1,5 +1,6 @@
 import { AlertTriangle, Inbox, PieChart as PieIcon } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import type { TooltipContentProps } from 'recharts'
 import type { ShareOfVoiceEntry } from '../../api/client'
 import type { Entity } from '../../types'
 import { useFilters } from '../../context/FiltersContext'
@@ -8,7 +9,6 @@ import { formatCompactNumber } from '../../lib/format'
 import { IconTile } from '../ui/IconTile'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
-import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
   entities: Entity[]
@@ -18,17 +18,42 @@ interface Props {
   refetch?: () => void
 }
 
+// Tooltip dedicado em vez do ChartTooltip compartilhado: aquele monta o cabeçalho
+// formatando `label` como data (formatShortDate) porque foi pensado pra série
+// temporal — numa pizza não existe eixo de data, `label` vem undefined do recharts e
+// virava um cabeçalho "undefined/undefined".
+function renderTooltip({ active, payload }: TooltipContentProps) {
+  if (!active || !payload || payload.length === 0) return null
+  const point = payload[0]?.payload as
+    | { name: string; mentions: number; share: number }
+    | undefined
+  if (!point) return null
+  return (
+    <div className="rounded-lg border border-[var(--baseline)] bg-[var(--chart-surface)] px-3 py-2 shadow-lg">
+      <p className="text-sm font-semibold text-[var(--text-primary)]">{point.name}</p>
+      <p className="text-xs text-[var(--text-secondary)]">
+        {point.mentions.toLocaleString('pt-BR')} menções · {(point.share * 100).toFixed(0)}%
+      </p>
+    </div>
+  )
+}
+
 export function ShareOfVoiceChart({ entities, data, loading, error, refetch }: Props) {
   const { setDays, clearFilters } = useFilters()
-  const rows = data
+  const trackedIds = new Set(entities.map((e) => e.id))
+  // `d.share` vem da API relativo ao registro inteiro (mesmo detalhe do
+  // MentionsByNetworkChart) - recalcula localmente sobre o total só de quem está em
+  // `entities`, senão as fatias não fecham 100% depois do filtro abaixo.
+  const tracked = data
+    .filter((d) => trackedIds.has(d.entityId))
     .map((d) => ({
       entityId: d.entityId,
       name: entities.find((e) => e.id === d.entityId)?.name ?? d.entityId,
       mentions: d.mentions,
-      share: d.share,
     }))
     .filter((r) => r.mentions > 0)
-  const total = rows.reduce((s, r) => s + r.mentions, 0)
+  const total = tracked.reduce((s, r) => s + r.mentions, 0)
+  const rows = tracked.map((r) => ({ ...r, share: total > 0 ? r.mentions / total : 0 }))
   const isEmpty = !loading && !error && rows.length === 0
 
   return (
@@ -110,7 +135,7 @@ export function ShareOfVoiceChart({ entities, data, loading, error, refetch }: P
                     <Cell key={row.entityId} fill={candidateColor(row.entityId)} />
                   ))}
                 </Pie>
-                <Tooltip content={(props) => <ChartTooltip {...props} />} />
+                <Tooltip content={renderTooltip} />
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">

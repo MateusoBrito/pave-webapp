@@ -122,11 +122,16 @@ class TestRotuloDeTopico:
     def test_rotulo_revisado_vence(self):
         assert topic_label("Educação", 7, ["escola"]) == "Educação"
 
+    def test_primeira_letra_sempre_maiuscula(self):
+        """O LLM que gera `rotulo` não garante a maiúscula, e as palavras-chave
+        vêm todas em minúsculo do pipeline (ver topic_label em queries/base.py)."""
+        assert topic_label("educação e creches", 7, []) == "Educação e creches"
+
     def test_sem_rotulo_usa_as_palavras_chave(self):
         """`load_topicos.py` nunca grava `rotulo`; "Tópico 7" é o que a Metodologia
         descarta explicitamente."""
         assert topic_label(None, 7, ["inflacao", "gasolina", "preco", "cesta"]) == (
-            "inflacao · gasolina · preco"
+            "Inflacao · gasolina · preco"
         )
 
     def test_sem_nada_cai_no_numero(self):

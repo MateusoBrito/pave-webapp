@@ -59,14 +59,20 @@ export function MentionsByNetworkChart({
   // Bars are 100%-stacked (each row's segments sum to 100) so a network dominated by one
   // source (YouTube dwarfing Reddit/Meta Ads in absolute terms) doesn't flatten the others
   // into invisibility - the absolute total still shows via renderTotalLabel above each bar.
-
+  //
+  // `d.byEntity` vem da API sem filtro de candidato = todo o registro (inclusive gente
+  // fora do conjunto monitorado, que nunca ganha `<Bar>` aqui). Sem restringir a `entities`,
+  // o total (`d.mentions`) contava essa gente também e a pilha nunca fechava 100%.
+  const trackedIds = new Set(entities.map((e) => e.id))
   const rows = data.map((d) => {
+    const tracked = d.byEntity.filter((e) => trackedIds.has(e.entityId))
+    const total = tracked.reduce((sum, e) => sum + e.mentions, 0)
     const row: Record<string, number | string> = {
       label: NETWORKS.find((n) => n.id === d.network)?.label ?? d.network,
-      total: d.mentions,
+      total,
     }
-    for (const e of d.byEntity) {
-      row[e.entityId] = d.mentions > 0 ? (e.mentions / d.mentions) * 100 : 0
+    for (const e of tracked) {
+      row[e.entityId] = total > 0 ? (e.mentions / total) * 100 : 0
       row[`${e.entityId}_abs`] = e.mentions
     }
     return row

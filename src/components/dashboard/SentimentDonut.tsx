@@ -1,12 +1,12 @@
 import { AlertTriangle, Inbox, PieChart as PieChartIcon } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import type { TooltipContentProps } from 'recharts'
 import type { SentimentLabel, TopicSentiment } from '../../types'
 import { useFilters } from '../../context/FiltersContext'
 import { sentimentColor } from '../../lib/colors'
 import { IconTile } from '../ui/IconTile'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
-import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
   sentiment: TopicSentiment | undefined
@@ -20,6 +20,24 @@ const ORDER: { key: SentimentLabel; label: string }[] = [
   { key: 'neutral', label: 'Neutro' },
   { key: 'negative', label: 'Negativo' },
 ]
+
+// Tooltip dedicado em vez do ChartTooltip compartilhado: aquele monta o cabeçalho
+// formatando `label` como data (formatShortDate) porque foi pensado pra série
+// temporal — numa pizza não existe eixo de data, `label` vem undefined do recharts e
+// virava um cabeçalho "undefined/undefined".
+function renderTooltip({ active, payload }: TooltipContentProps) {
+  if (!active || !payload || payload.length === 0) return null
+  const point = payload[0]?.payload as { name: string; value: number } | undefined
+  if (!point) return null
+  return (
+    <div className="rounded-lg border border-[var(--baseline)] bg-[var(--chart-surface)] px-3 py-2 shadow-lg">
+      <p className="text-sm font-semibold text-[var(--text-primary)]">{point.name}</p>
+      <p className="text-xs text-[var(--text-secondary)]">
+        {point.value.toLocaleString('pt-BR')} comentários
+      </p>
+    </div>
+  )
+}
 
 function predominant(rows: { key: SentimentLabel; value: number }[], total: number) {
   const top = [...rows].sort((a, b) => b.value - a.value)[0]
@@ -114,7 +132,7 @@ export function SentimentDonut({ sentiment, loading, error, refetch }: Props) {
                     <Cell key={row.name} fill={sentimentColor(row.key)} />
                   ))}
                 </Pie>
-                <Tooltip content={(props) => <ChartTooltip {...props} />} />
+                <Tooltip content={renderTooltip} />
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">

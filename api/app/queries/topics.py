@@ -5,16 +5,31 @@ Cada linha aqui é um par (tópico do modelo, entidade) — ver a docstring de
 """
 
 
+from datetime import date as Date
+from datetime import timedelta
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..deps import Period
-from ..models import AlvoColeta, Documento, DocumentoTopico, Entidade, Topico
+from ..models import (
+    AlvoColeta,
+    Documento,
+    DocumentoTopico,
+    Entidade,
+    Modelo,
+    StatusModeloEnum,
+    TipoModeloEnum,
+    Topico,
+)
 from ..schemas.domain import Network, Topic, TopicSentiment, fonte_de, network_de
 from ..schemas.responses import (
     SubdivisionColumn,
     SubdivisionMatrix,
     SubdivisionRow,
+    TopicCalendarDay,
+    TopicCalendarEntity,
+    TopicCalendarResult,
     TopicDetail,
     TopicRankingRow,
 )
@@ -76,6 +91,7 @@ async def _ranking_rows(
     entity_ids: list[str],
     networks: list[Network],
     topico_id: int | None = None,
+    day_fallback: bool = True,
 ) -> list:
     """Agregação por (tópico, entidade) com sentimento e rede dominante."""
     stmt = fact_select(
@@ -95,6 +111,15 @@ async def _ranking_rows(
         end=period.end,
         entity_ids=entity_ids,
         networks=networks,
+        # A modelagem diária grava um conjunto de tópicos por dia (ver vigente_model_ids
+        # em base.py) - sem isso, o ranking juntaria tópicos de todo dia já carregado
+        # numa lista só. Usa o fim do período já selecionado no front (o mesmo filtro
+        # que já existe na tela) como "de qual dia" mostrar os tópicos. `day_fallback`
+        # varia por chamador: a Visão Geral (sem dia explícito, período de meses) quer
+        # o fallback pro último dia disponível; a tela de tópicos (dia escolhido
+        # clicando no gráfico) não - ver topic_ranking().
+        topic_day=period.end,
+        topic_day_fallback=day_fallback,
     )
     if topico_id is not None:
         stmt = stmt.where(DocumentoTopico.topico_id == topico_id)
@@ -115,6 +140,7 @@ async def topic_ranking(
     entity_ids: list[str],
     networks: list[Network],
     limit: int | None = None,
+    day_fallback: bool = True,
 ) -> list[TopicRankingRow]:
     """GET /topics/ranking.
 
@@ -124,9 +150,17 @@ async def topic_ranking(
 
     Quem chama já restringe `networks` às orgânicas: Meta Ads é conteúdo do próprio
     candidato e não entra em ranking de conversa pública.
+
+    `day_fallback` (padrão True): a Visão Geral chama este endpoint sem um dia
+    escolhido pelo usuário (é uma agregação de meses, "Top 10 tópicos do período") -
+    aí cair no último dia disponível é melhor que voltar vazio. A tela de tópicos
+    ("O que os usuários comentam?"), onde o usuário clica num dia específico do
+    gráfico, passa `day_fallback=False` - ver TopicsPage/routers/topics.py.
     """
-    atual = await _ranking_rows(session, period, entity_ids, networks)
-    anterior = await _ranking_rows(session, period.previous(), entity_ids, networks)
+    atual = await _ranking_rows(session, period, entity_ids, networks, day_fallback=day_fallback)
+    anterior = await _ranking_rows(
+        session, period.previous(), entity_ids, networks, day_fallback=day_fallback,
+    )
 
     antes = {(row.topico_id, row.entidade): row.mentions for row in anterior}
     total_por_entidade: dict[str, int] = {}
@@ -246,6 +280,7 @@ async def topics_by_subdivision(
             DocumentoTopico.topico_id.label("topico_id"),
             AlvoColeta.entidade_codigo.label("entidade"),
             AlvoColeta.canal.label("canal"),
+            AlvoColeta.rotulo.label("canal_rotulo"),
             AlvoColeta.fonte_codigo.label("fonte"),
             Entidade.nome_exibicao.label("nome_entidade"),
             Topico.rotulo,
@@ -258,12 +293,19 @@ async def topics_by_subdivision(
             entity_ids=entity_ids,
             networks=[network],
             with_sentiment=False,
+            # Sem isso, junta os tópicos de todo dia já carregado numa pilha só (visto
+            # ao vivo: 10 tópicos somados de 2 dias diferentes, quando o dia
+            # selecionado só tem 5). Esta tela sempre parte de um dia escolhido
+            # explicitamente (ver TopicsPage) - sem fallback pra outro dia.
+            topic_day=period.end,
+            topic_day_fallback=False,
         )
         .join(Entidade, Entidade.codigo == AlvoColeta.entidade_codigo)
         .group_by(
             DocumentoTopico.topico_id,
             AlvoColeta.entidade_codigo,
             AlvoColeta.canal,
+            AlvoColeta.rotulo,
             AlvoColeta.fonte_codigo,
             Entidade.nome_exibicao,
             Topico.rotulo,
@@ -275,7 +317,7 @@ async def topics_by_subdivision(
     rows = (await session.execute(stmt)).all()
 
     rotulos = {
-        row.canal: canal_label(row.fonte, row.canal, row.nome_entidade) for row in rows
+        row.canal: canal_label(row.fonte, row.canal, row.nome_entidade, row.canal_rotulo) for row in rows
     }
     canais = sorted(rotulos, key=lambda c: rotulos[c])
     por_topico: dict[tuple[int, str], dict] = {}
@@ -301,3 +343,77 @@ async def topics_by_subdivision(
         max_value=max(1, maximo),
         unit_label="comentários",
     )
+
+
+async def topic_calendar(
+    session: AsyncSession, entity_ids: list[str], network: Network, start: Date, end: Date,
+) -> TopicCalendarResult:
+    """GET /topics/calendar — um mini-calendário por candidato (ver TopicsCalendarCard
+    no front, navegação por mês): o tópico de maior volume de cada dia entre `start` e
+    `end` (inclusive), com o volume REAL daquele dia.
+
+    Antes lia direto de `topico.tamanho` (o total do tópico na janela inteira do
+    modelo) usando `modelo.janela_fim` como "o dia" - fazia sentido quando a modelagem
+    era diária (um modelo por dia, janela_inicio == janela_fim). Com a modelagem
+    semanal (pipeline/weekly_topics.py em pave-tm - janela_fim = janela_inicio+6), isso
+    só produzia UM ponto por semana (no janela_fim), com o volume da semana inteira
+    encaixado nesse único dia - os outros 6 dias ficavam vazios (buraco na linha do
+    gráfico) em vez de mostrarem o volume real deles.
+
+    Agora conta documento_topico de verdade, agrupado pelo dia real de publicação
+    (local_date_column) - todo dia dentro da janela de um modelo aparece com o volume
+    que de fato teve nele. O tópico de maior destaque é calculado por dia (não herdado
+    do agregado semanal), mas como o modelo vale pra semana toda, tende a se repetir
+    ao longo dela quando um tema domina a semana - sem precisar de lógica extra pra
+    isso.
+
+    Um dia sem nenhum documento com tópico vira TopicCalendarDay sem top_label/
+    mentions - célula vazia no calendário, não erro (mesma filosofia de "dias vazios
+    ficam vazios" do backfill).
+    """
+    dia_expr = local_date_column().label("dia")
+    stmt = fact_select(
+        dia_expr,
+        AlvoColeta.entidade_codigo.label("entidade"),
+        Topico.id.label("topico_id"),
+        Topico.rotulo,
+        Topico.numero,
+        Topico.palavras_chave,
+        func.count().label("contagem"),
+        start=start, end=end,
+        entity_ids=entity_ids, networks=[network],
+        with_topic=True, with_sentiment=False,
+    ).group_by(dia_expr, AlvoColeta.entidade_codigo, Topico.id, Topico.rotulo, Topico.numero, Topico.palavras_chave)
+    rows = (await session.execute(stmt)).all()
+
+    # Por (entidade, dia): soma todas as contagens de tópico = volume real do dia;
+    # o tópico com mais menções naquele dia vira o destaque.
+    volume_por_dia: dict[tuple[str, Date], int] = {}
+    melhor_por_dia: dict[tuple[str, Date], tuple[int, object]] = {}
+    for row in rows:
+        chave = (row.entidade, row.dia)
+        volume_por_dia[chave] = volume_por_dia.get(chave, 0) + row.contagem
+        atual = melhor_por_dia.get(chave)
+        if atual is None or row.contagem > atual[0]:
+            melhor_por_dia[chave] = (row.contagem, row)
+
+    entities_result = []
+    for entity_id in entity_ids:
+        dias = []
+        dia = start
+        while dia <= end:
+            chave = (entity_id, dia)
+            melhor = melhor_por_dia.get(chave)
+            if melhor is None:
+                dias.append(TopicCalendarDay(date=dia))
+            else:
+                _, row = melhor
+                dias.append(TopicCalendarDay(
+                    date=dia,
+                    top_label=topic_label(row.rotulo, row.numero, row.palavras_chave),
+                    mentions=volume_por_dia[chave],
+                ))
+            dia += timedelta(days=1)
+        entities_result.append(TopicCalendarEntity(entity_id=entity_id, days=dias))
+
+    return TopicCalendarResult(entities=entities_result)

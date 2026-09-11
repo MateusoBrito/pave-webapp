@@ -310,7 +310,6 @@ async def ad_topic_ranking(
     limit: int | None = None,
 ) -> list[AdTopicRankingRow]:
     """GET /candidates/content/ranking — tópicos por investimento declarado."""
-    inicio, fim = day_bounds(period.start, period.end)
     stmt = (
         select(
             DocumentoTopico.topico_id.label("topico_id"),
@@ -328,10 +327,14 @@ async def ad_topic_ranking(
         .join(DocumentoTopico, DocumentoTopico.documento_id == Documento.id)
         .join(Topico, Topico.id == DocumentoTopico.topico_id)
         .where(
-            Documento.publicado_em >= inicio,
-            Documento.publicado_em < fim,
             AlvoColeta.ativo.is_(True),
-            Topico.modelo_id.in_(vigente_model_ids(TipoModeloEnum.topico)),
+            # Um conjunto de tópicos por dia (ver vigente_model_ids em base.py) - usa o
+            # fim do período já escolhido pelo usuário. day_fallback=False: sem isso,
+            # um dia sem modelo próprio emprestaria o do último dia disponível e
+            # mostraria como se fosse do dia pedido, sem avisar (visto ao vivo).
+            Topico.modelo_id.in_(
+                vigente_model_ids(TipoModeloEnum.topico, day=period.end, day_fallback=False)
+            ),
         )
         .group_by(
             DocumentoTopico.topico_id,
@@ -583,6 +586,7 @@ async def publication_comments(
                 AlvoColeta.entidade_codigo.label("entidade"),
                 AlvoColeta.fonte_codigo.label("fonte"),
                 AlvoColeta.canal.label("canal"),
+                AlvoColeta.rotulo.label("canal_rotulo"),
                 DocumentoTopico.topico_id.label("topico_id"),
                 Sentimento.polaridade.label("polaridade"),
                 Topico.rotulo,
@@ -670,7 +674,7 @@ async def publication_comments(
     ).first()
 
     contexto = canal_label(
-        pai.fonte, pai.canal or "", entidade.nome_exibicao if entidade else None
+        pai.fonte, pai.canal or "", entidade.nome_exibicao if entidade else None, pai.canal_rotulo
     )
 
     documento = _build_document(pai)

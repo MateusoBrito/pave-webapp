@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .auth import init_firebase
+from .auth import current_user, init_firebase
 from .config import Settings, get_settings
 from .db import dispose_engine, get_session, init_engine
 from .routers import ads, catalog, comparison, network_documents, series, topics
@@ -99,9 +99,10 @@ if _fotos is None:
 else:
     app.mount("/fotos", StaticFiles(directory=_fotos), name="fotos")
 
-app.include_router(catalog.router)
-app.include_router(series.router)
-app.include_router(topics.router)
-app.include_router(comparison.router)
-app.include_router(ads.router)
-app.include_router(network_documents.router)
+_auth_dep = [Depends(current_user)]
+app.include_router(catalog.router, dependencies=_auth_dep)
+app.include_router(series.router, dependencies=_auth_dep)
+app.include_router(topics.router, dependencies=_auth_dep)
+app.include_router(comparison.router, dependencies=_auth_dep)
+app.include_router(ads.router, dependencies=_auth_dep)
+app.include_router(network_documents.router, dependencies=_auth_dep)

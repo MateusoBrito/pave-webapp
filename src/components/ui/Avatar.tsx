@@ -7,6 +7,12 @@ interface Props {
   color: string
   size?: number
   selected?: boolean
+  /** 'check' (padrão) = selo de check no canto, para seleção múltipla (várias pessoas
+   * podem estar marcadas ao mesmo tempo — Visão Geral). 'ring' = halo colorido ao redor
+   * do avatar inteiro, para seleção única (exatamente um sempre marcado — Tópicos,
+   * Posts): o selo de check aí sugeriria "marque quantos quiser", que não é o caso -
+   * ver CandidateAvatarFilter's singleSelect. */
+  selectionStyle?: 'check' | 'ring'
   /** tom neutro/desabilitado — usado pro slot "Outros" (candidato futuro, Fase 6) */
   muted?: boolean
   /** substitui as iniciais por um ícone — usado quando não há identidade real (ex.: "Outros") */
@@ -27,6 +33,7 @@ export function Avatar({
   color,
   size = 44,
   selected = false,
+  selectionStyle = 'check',
   muted = false,
   icon: Icon,
   photoUrl,
@@ -40,9 +47,19 @@ export function Avatar({
   }, [photoUrl])
 
   const showPhoto = Boolean(photoUrl) && !muted && !photoFailed
+  const ring = selected && selectionStyle === 'ring'
 
   return (
-    <div className="relative inline-flex shrink-0" style={{ width: size, height: size }}>
+    <div
+      className="relative inline-flex shrink-0 rounded-full transition-shadow"
+      style={{
+        width: size,
+        height: size,
+        boxShadow: ring
+          ? `0 0 0 3px var(--chart-surface), 0 0 0 5px ${color}`
+          : undefined,
+      }}
+    >
       {showPhoto ? (
         <img
           src={photoUrl}
@@ -50,7 +67,12 @@ export function Avatar({
           referrerPolicy="no-referrer"
           onError={() => setPhotoFailed(true)}
           className="h-full w-full rounded-full object-cover"
-          style={{ boxShadow: `0 0 0 2px ${color}` }}
+          style={{
+            // Em modo 'ring', o halo do <div> pai já é o único indicador de seleção -
+            // a foto não pode ter sua própria borda sempre visível, senão todo mundo
+            // (selecionado ou não) parece ter um círculo ao redor.
+            boxShadow: selectionStyle === 'ring' ? undefined : `0 0 0 2px ${color}`,
+          }}
         />
       ) : (
         <div
@@ -64,7 +86,7 @@ export function Avatar({
           {Icon ? <Icon size={size * 0.5} strokeWidth={2} /> : initials(name)}
         </div>
       )}
-      {selected && (
+      {selected && selectionStyle === 'check' && (
         <span
           className="absolute -right-0.5 -bottom-0.5 flex items-center justify-center rounded-full border-2 border-[var(--chart-surface)] bg-[var(--color-primary)] text-white"
           style={{ width: size * 0.42, height: size * 0.42 }}

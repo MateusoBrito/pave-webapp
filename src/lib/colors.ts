@@ -1,4 +1,4 @@
-import type { SentimentLabel } from '../types'
+import type { SentimentLabel, TopicSentiment } from '../types'
 
 /**
  * Cor de identidade por candidato — fixa por id, nunca posicional. Roxo é
@@ -7,7 +7,7 @@ import type { SentimentLabel } from '../types'
  */
 const CANDIDATE_COLORS: Record<string, string> = {
   lula: 'var(--color-lula)',
-  'flavio-bolsonaro': 'var(--color-flavio)',
+  flavio_bolsonaro: 'var(--color-flavio)',
 }
 
 /** Reserva categórica p/ candidatos futuros (Fase 6) além dos 2 com cor própria —
@@ -38,6 +38,20 @@ const SENTIMENT_COLORS: Record<SentimentLabel, string> = {
 
 export function sentimentColor(label: SentimentLabel): string {
   return SENTIMENT_COLORS[label]
+}
+
+/** Qual dos 3 rótulos domina uma contagem de sentimento, e seu percentual - usado
+ * onde só cabe UM resumo (ex.: cabeçalho de tópico, sentimento predominante numa
+ * lista compacta), não a distribuição inteira (ver SentimentBar para isso). */
+export function predominantSentiment(sentiment: TopicSentiment): { label: SentimentLabel; pct: number } {
+  const total = sentiment.negative + sentiment.neutral + sentiment.positive || 1
+  if (sentiment.negative >= sentiment.neutral && sentiment.negative >= sentiment.positive) {
+    return { label: 'negative', pct: (sentiment.negative / total) * 100 }
+  }
+  if (sentiment.positive >= sentiment.neutral) {
+    return { label: 'positive', pct: (sentiment.positive / total) * 100 }
+  }
+  return { label: 'neutral', pct: (sentiment.neutral / total) * 100 }
 }
 
 /** Categórico de tópicos — ordem fixa, nunca reciclada. Evita roxo/teal/âmbar/coral

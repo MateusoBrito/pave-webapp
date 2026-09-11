@@ -10,10 +10,11 @@ from ..queries.base import parse_topic_id
 from ..schemas.domain import Network, TopicDocument
 from ..schemas.responses import (
     CandidateTopicListResult,
-    CandidateVolumePoint,
     SentimentSeriesPoint,
     SubdivisionMatrix,
+    TopicCalendarResult,
     TopicDetail,
+    TopicHourlyVolumePoint,
     TopicRankingRow,
 )
 
@@ -35,13 +36,34 @@ async def ranking(
     entities: list[str] = Depends(entity_ids),
     escopo: OrganicScope = Depends(organic_scope),
     limit: int | None = Query(None, ge=1, le=500),
+    day_fallback: bool = Query(
+        True,
+        description="Se um dia sem modelo cai no último disponível (Visão Geral) ou "
+        "volta vazio (tela de tópicos, dia escolhido explicitamente pelo usuário).",
+    ),
     session: AsyncSession = Depends(get_session),
 ):
     """Ranking de tópicos. Meta Ads nunca entra — conteúdo pago do candidato não é
     conversa do público. Filtrar só Meta Ads devolve lista vazia, não "tudo"."""
     if escopo.empty:
         return []
-    return await topics.topic_ranking(session, period, entities, escopo.networks, limit)
+    return await topics.topic_ranking(
+        session, period, entities, escopo.networks, limit, day_fallback=day_fallback,
+    )
+
+
+@router.get("/topics/calendar", response_model=TopicCalendarResult, response_model_exclude_none=True)
+async def calendar(
+    network: Network,
+    period: Period = Depends(period_params),
+    entities: list[str] = Depends(entity_ids),
+    session: AsyncSession = Depends(get_session),
+):
+    """Um mini-calendário por candidato: o tópico de maior volume de cada dia entre
+    `from` e `to` — ver TopicsCalendarCard (navegação por mês) no front."""
+    if not entities:
+        return TopicCalendarResult(entities=[])
+    return await topics.topic_calendar(session, entities, network, period.start, period.end)
 
 
 @router.get("/topics/by-subdivision", response_model=SubdivisionMatrix, response_model_exclude_none=True)
@@ -79,25 +101,27 @@ async def detail(
     return resultado
 
 
-@router.get("/topics/{topic_id}/series-by-candidate", response_model=list[CandidateVolumePoint])
+@router.get("/topics/{topic_id}/series-by-candidate", response_model=list[TopicHourlyVolumePoint])
 async def series_by_candidate(
     topic_id: str,
     period: Period = Depends(period_params),
     escopo: OrganicScope = Depends(organic_scope),
     session: AsyncSession = Depends(get_session),
 ):
-    """Evolução do tópico. Como o tópico já pertence a um candidato só, a série tem
-    uma linha — é o que o gráfico do drill-down espera."""
+    """Evolução do tópico, por hora. Como o tópico já pertence a um candidato só, a
+    série tem uma linha — é o que o gráfico do drill-down espera. Por hora (não por
+    dia): a modelagem é diária agora, então o tópico inteiro já vive dentro de um
+    único dia calendário - uma série diária colapsaria num ponto só."""
     topico_id, entidade = _split(topic_id)
     from sqlalchemy import func
 
     from ..models import DocumentoTopico
-    from ..queries.base import fact_select, local_date_column
+    from ..queries.base import fact_select, local_hour_column
 
-    dia = local_date_column().label("dia")
+    hora = local_hour_column().label("hora")
     stmt = (
         fact_select(
-            dia,
+            hora,
             func.count().label("mentions"),
             start=period.start,
             end=period.end,
@@ -106,12 +130,12 @@ async def series_by_candidate(
             with_sentiment=False,
         )
         .where(DocumentoTopico.topico_id == topico_id)
-        .group_by(dia)
-        .order_by(dia)
+        .group_by(hora)
+        .order_by(hora)
     )
     rows = (await session.execute(stmt)).all()
     return [
-        CandidateVolumePoint(date=row.dia, entity_id=entidade, mentions=row.mentions)
+        TopicHourlyVolumePoint(date=row.hora, entity_id=entidade, mentions=row.mentions)
         for row in rows
     ]
 

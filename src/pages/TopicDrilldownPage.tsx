@@ -11,15 +11,15 @@ import {
   ORGANIC_NETWORKS,
 } from '../api/client'
 import { SentimentDonut } from '../components/dashboard/SentimentDonut'
-import { SentimentOverTimeChart } from '../components/dashboard/SentimentOverTimeChart'
 import { TopicExamplePosts } from '../components/dashboard/TopicExamplePosts'
 import { TopicHeader } from '../components/dashboard/TopicHeader'
-import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
+import { TopicHourlySentimentChart } from '../components/dashboard/TopicHourlySentimentChart'
+import { TopicHourlyVolumeChart } from '../components/dashboard/TopicHourlyVolumeChart'
 import { Avatar } from '../components/ui/Avatar'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
 import { candidateColor, networkColor, networkTint } from '../lib/colors'
-import { formatFullDate } from '../lib/dates'
+import { formatDateRange, formatFullDate } from '../lib/dates'
 import type { Network } from '../types'
 
 const NETWORK_ICON: Record<Network, LucideIcon> = {
@@ -65,23 +65,24 @@ export function TopicDrilldownPage() {
   const ownerEntity = detail
     ? entities.find((e) => e.id === detail.topic.entityId)
     : undefined
-  const topicOwnerEntities = ownerEntity ? [ownerEntity] : []
 
   const topicPeriod: PeriodFilter | undefined = detail
     ? { from: detail.periodStart, to: detail.periodEnd }
     : undefined
   const seriesDeps = [topicId, detail?.periodStart, detail?.periodEnd]
-  // VolumeOverTimeChart lê `.from`/`.to` incondicionalmente (detectGapRanges), mesmo
-  // enquanto `loading=true` - precisa de algum período válido já no primeiro render,
-  // antes da vigência do tópico chegar. O valor não importa: `points` ainda está vazio
-  // nesse momento, então não há gap nenhum pra calcular de verdade.
-  const today = new Date().toISOString().slice(0, 10)
-  const chartPeriod: PeriodFilter = topicPeriod ?? { from: today, to: today }
 
+  // O modelo é ajustado com os documentos de um dia, mas o "transform" de 2 em 2
+  // horas pode atribuir documentos atrasados de outro dia ao mesmo tópico depois -
+  // periodStart/periodEnd nem sempre são o mesmo dia. Mostra intervalo só quando
+  // precisa, não força um "de X a X" degenerado no caso comum de um dia só.
   usePageHeader(
     'Detalhes do Tópico',
     detail
-      ? `${detail.topic.label} · ${formatFullDate(detail.periodStart)} – ${formatFullDate(detail.periodEnd)}`
+      ? `${detail.topic.label} · ${
+          detail.periodStart === detail.periodEnd
+            ? formatFullDate(detail.periodStart)
+            : formatDateRange({ from: detail.periodStart, to: detail.periodEnd })
+        }`
       : '...',
   )
 
@@ -170,15 +171,12 @@ export function TopicDrilldownPage() {
       />
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <VolumeOverTimeChart
-          entities={topicOwnerEntities}
+        <TopicHourlyVolumeChart
+          entity={ownerEntity}
           points={candidateSeries}
           loading={seriesLoading}
           error={seriesError}
           refetch={refetchSeries}
-          period={chartPeriod}
-          title="Evolução do tópico"
-          subtitle="Menções por dia"
         />
         <SentimentDonut
           sentiment={detail?.sentiment}
@@ -188,7 +186,7 @@ export function TopicDrilldownPage() {
         />
       </section>
 
-      <SentimentOverTimeChart
+      <TopicHourlySentimentChart
         points={sentimentSeries}
         loading={sentimentLoading}
         error={sentimentError}
