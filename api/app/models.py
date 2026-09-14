@@ -203,6 +203,7 @@ class Topico(Base):
     revisado = Column(Boolean, nullable=False, default=False)
     palavras_chave = Column(ARRAY(Text))
     tamanho = Column(Integer)
+    descricao = Column(Text)
 
     __table_args__ = (Index("idx_topico_modelo_numero", modelo_id, numero, unique=True),)
 

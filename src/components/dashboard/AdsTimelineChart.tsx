@@ -1,5 +1,5 @@
 import { AlertTriangle, MousePointerClick, TrendingUp } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { getTopicCalendar } from '../../api/client'
@@ -10,10 +10,10 @@ import { formatFullDate, formatShortDate, yesterdayIsoDate } from '../../lib/dat
 import { formatBRLRange } from '../../lib/format'
 import type { Entity } from '../../types'
 import { IconTile } from '../ui/IconTile'
+import { SegmentedControl } from '../ui/SegmentedControl'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
 
-const WINDOW_DAYS = 30
 
 function daysAgoIso(n: number): string {
   const d = new Date(`${yesterdayIsoDate()}T00:00:00Z`)
@@ -50,17 +50,25 @@ export function AdsTimelineChart({ entities, rankingRows, rankingLoading, rankin
   )
   const hasInvestment = rankingRows.length > 0
 
-  const period = { from: daysAgoIso(WINDOW_DAYS), to: yesterdayIsoDate() }
+  // Busca um histórico longo (1 ano) para conseguirmos encontrar os últimos N dias
+  // que REALMENTE tiveram anúncios (evitando gráficos vazios se o candidato parou de anunciar)
+  const [requireTopic, setRequireTopic] = useState<'all' | 'topics_only'>('all')
+
+  const period = { from: daysAgoIso(365), to: yesterdayIsoDate() }
   const { data, loading, error, refetch } = useAsync(
-    () => (activeId ? getTopicCalendar([activeId], 'meta_ads', period) : Promise.resolve(undefined)),
-    [activeId],
+    () => (activeId ? getTopicCalendar([activeId], 'meta_ads', period, requireTopic === 'topics_only') : Promise.resolve(undefined)),
+    [activeId, requireTopic],
   )
 
-  const chartData = (data?.entities[0]?.days ?? []).map((d) => ({
+  const allDays = data?.entities[0]?.days ?? []
+  const activeDays = allDays.filter((d) => d.mentions != null && d.mentions > 0)
+  
+  const chartData = activeDays.slice(-30).map((d) => ({
     date: d.date,
-    mentions: d.mentions ?? null,
+    mentions: d.mentions,
     topLabel: d.topLabel,
   }))
+  
   const selectedPoint = chartData.find((d) => d.date === day && d.mentions != null)
 
   // Mesmo ajuste do TopicsTimelineChart: se o dia pré-selecionado (default D-1) não
@@ -86,12 +94,23 @@ export function AdsTimelineChart({ entities, rankingRows, rankingLoading, rankin
           <IconTile icon={TrendingUp} tone="coral" size={34} />
           <div>
             <h2 className="text-[15px] font-bold text-[var(--text-primary)]">
-              Volume de anúncios por dia{activeEntity ? ` · ${activeEntity.name}` : ''}
+              Últimos dias com anúncios veiculados{activeEntity ? ` · ${activeEntity.name}` : ''}
             </h2>
             <p className="text-[11px] text-[var(--text-muted)]">
-              Clique num ponto para ver os tópicos de anúncio daquele dia
+              Exibindo até 30 datas recentes que possuem atividade. Clique num ponto para ver os detalhes.
             </p>
           </div>
+        </div>
+
+        <div className="hidden sm:block">
+          <SegmentedControl
+            value={requireTopic}
+            onChange={(val) => setRequireTopic(val as 'all' | 'topics_only')}
+            options={[
+              { value: 'all', label: 'Todos os anúncios' },
+              { value: 'topics_only', label: 'Com tópico' },
+            ]}
+          />
         </div>
 
         {hasInvestment && (

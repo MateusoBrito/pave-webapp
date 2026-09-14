@@ -138,8 +138,10 @@ def _build_document(row) -> TopicDocument | None:
     if rede is None:
         return None
     meta = row.metadados or {}
+    id_nativo = getattr(row, "id_nativo", None)
     return TopicDocument(
         id=str(row.id),
+        id_nativo=str(id_nativo) if id_nativo is not None else None,
         topic_id=compose_topic_id(row.topico_id, row.entidade) if row.topico_id else "",
         entity_id=row.entidade,
         network=rede,
@@ -157,6 +159,7 @@ def _document_select(period: Period | None, entity_ids: list[str]):
     stmt = (
         select(
             Documento.id,
+            Documento.id_nativo,
             Documento.texto,
             Documento.publicado_em,
             Documento.metadados,
@@ -310,6 +313,14 @@ async def ad_topic_ranking(
     limit: int | None = None,
 ) -> list[AdTopicRankingRow]:
     """GET /candidates/content/ranking — tópicos por investimento declarado."""
+
+    inicio_ad = func.coalesce(
+        cast(func.nullif(Documento.metadados[AD_START_KEYS[0]].astext, ""), DateTime(timezone=True)),
+        Documento.publicado_em
+    )
+    fim_ad = cast(func.nullif(Documento.metadados[AD_STOP_KEYS[0]].astext, ""), DateTime(timezone=True))
+    dias_ativos = func.greatest(1, func.extract('epoch', func.coalesce(fim_ad, func.now()) - inicio_ad) / 86400)
+
     stmt = (
         select(
             DocumentoTopico.topico_id.label("topico_id"),
@@ -318,8 +329,8 @@ async def ad_topic_ranking(
             Topico.numero,
             Topico.palavras_chave,
             Topico.revisado,
-            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "lower_bound")), 0).label("min"),
-            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "upper_bound")), 0).label("max"),
+            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "lower_bound") / dias_ativos), 0).label("min"),
+            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "upper_bound") / dias_ativos), 0).label("max"),
             func.count().label("ads"),
         )
         .select_from(Documento)

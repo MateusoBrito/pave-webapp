@@ -123,6 +123,7 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
 
   const { label: sentimentLabel, pct: sentimentPct } = predominantSentiment(detail.sentiment)
   const network = detail.dominantNetwork
+  const hasDescription = detail.topic.description && detail.topic.description.trim() !== ''
 
   return (
     <section
@@ -154,16 +155,25 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
             <h1 className="text-2xl font-bold text-[var(--text-primary)]">
               {detail.topic.label}
             </h1>
-            <div className="flex flex-wrap gap-1.5">
-              {detail.topic.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-[7px] bg-[var(--page-plane)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+            
+            {/* Renderização condicional: Descrição OU pílulas de tags */}
+            {hasDescription ? (
+              <p className="text-sm font-medium text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+                {detail.topic.description}
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {detail.topic.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-[7px] bg-[var(--page-plane)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            
           </div>
         </div>
 

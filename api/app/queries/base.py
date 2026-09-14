@@ -212,6 +212,7 @@ def fact_select(
     entity_ids: list[str] | None = None,
     networks: list[Network] | None = None,
     with_topic: bool = True,
+    outerjoin_topic: bool = False,
     with_sentiment: bool = True,
     topic_day: Date | None = None,
     topic_day_fallback: bool = True,
@@ -244,6 +245,15 @@ def fact_select(
         stmt = stmt.join(Topico, Topico.id == DocumentoTopico.topico_id)
         stmt = stmt.where(
             Topico.modelo_id.in_(
+                vigente_model_ids(TipoModeloEnum.topico, day=topic_day, day_fallback=topic_day_fallback)
+            )
+        )
+    elif outerjoin_topic:
+        stmt = stmt.outerjoin(DocumentoTopico, DocumentoTopico.documento_id == Documento.id)
+        stmt = stmt.outerjoin(
+            Topico,
+            (Topico.id == DocumentoTopico.topico_id)
+            & Topico.modelo_id.in_(
                 vigente_model_ids(TipoModeloEnum.topico, day=topic_day, day_fallback=topic_day_fallback)
             )
         )

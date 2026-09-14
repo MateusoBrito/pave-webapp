@@ -42,7 +42,7 @@ export function TopTopicsTable({ groups, entities, loading, error, refetch }: Pr
         <IconTile icon={Grid3x3} tone="amber" size={36} />
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Principais tópicos de hoje
+            Principais tópicos do momento
           </h2>
           {/* Com mais de um candidato a lista é por candidato, não os dez maiores em
               volume (ver agruparPorEntidade) — o rótulo precisa dizer isso. */}

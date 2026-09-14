@@ -68,7 +68,7 @@ export function TopicsBySubdivisionGrid({
           <div className="flex items-center gap-2">
             <p className="text-[10px] font-medium text-[var(--text-muted)]">
               {Math.min((page + 1) * VISIBLE_COLUMNS, columns.length)} de {columns.length}{' '}
-              subreddits
+              {columns.length > 2 ? 'canais' : 'subreddits'}
             </p>
             <button
               type="button"

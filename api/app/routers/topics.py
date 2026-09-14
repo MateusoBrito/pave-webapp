@@ -57,13 +57,16 @@ async def calendar(
     network: Network,
     period: Period = Depends(period_params),
     entities: list[str] = Depends(entity_ids),
+    require_topic: bool = Query(False, description="Se True, ignora documentos que não possuem tópico"),
     session: AsyncSession = Depends(get_session),
 ):
     """Um mini-calendário por candidato: o tópico de maior volume de cada dia entre
     `from` e `to` — ver TopicsCalendarCard (navegação por mês) no front."""
     if not entities:
         return TopicCalendarResult(entities=[])
-    return await topics.topic_calendar(session, entities, network, period.start, period.end)
+    return await topics.topic_calendar(
+        session, entities, network, period.start, period.end, require_topic
+    )
 
 
 @router.get("/topics/by-subdivision", response_model=SubdivisionMatrix, response_model_exclude_none=True)

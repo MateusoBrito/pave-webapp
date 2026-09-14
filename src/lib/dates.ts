@@ -21,14 +21,17 @@ export function lastNDaysPeriod(n: number): PeriodFilter {
   return { from: toIsoDate(from), to: toIsoDate(to) }
 }
 
-/** Não existe controle de período na Visão Geral, ela sempre mostra tudo que o
- * Postgres retém (hoje, ~1 semana por política de retenção; ver pipelines/etl). A API
- * rejeita períodos com mais de 366 dias (deps.py, MAX_PERIOD_DAYS) - 365 dias pra trás
- * cobre qualquer coisa que a retenção guarde com folga, sem esbarrar nesse limite. */
-const ALL_TIME_DAYS = 365
-
+/** Não existe controle de período na Visão Geral. Originalmente mostrava tudo
+ * (365 dias), mas como a coleta do Reddit/Meta tem dados residuais antes de Agosto
+ * que amassam o gráfico, o período foi fixado para iniciar em 1º de Agosto do ano
+ * atual. */
 export function allTimePeriod(): PeriodFilter {
-  return lastNDaysPeriod(ALL_TIME_DAYS)
+  const to = yesterdayIsoDate()
+  const year = to.slice(0, 4)
+  const aug1 = `${year}-08-01`
+  // Se por acaso estivermos antes de agosto no ano, evita from > to
+  const from = to < aug1 ? to : aug1
+  return { from, to }
 }
 
 export function formatShortDate(iso: string): string {

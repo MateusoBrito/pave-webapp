@@ -106,6 +106,7 @@ class Topic(ApiModel):
     id: str
     entity_id: str
     label: str
+    description: str | None = None
     weight: float
     tags: list[str] = Field(default_factory=list)
     emergent: bool | None = None
@@ -154,6 +155,7 @@ class TopicDocument(ApiModel):
     """
 
     id: str
+    id_nativo: str | None = Field(default=None, serialization_alias="id_nativo")
     topic_id: str
     entity_id: str
     network: Network

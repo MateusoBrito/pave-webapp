@@ -223,6 +223,7 @@ function generateDocuments(): TopicDocument[] {
 
       documents.push({
         id: `doc-${seq}`,
+        id_nativo: `1234567890${seq}`,
         topicId: topic.id,
         entityId: topic.entityId,
         network,

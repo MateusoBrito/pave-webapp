@@ -14,9 +14,10 @@ interface Entity {
 
 interface UnifiedHashtagCloudProps {
   entities: Entity[];
+  networks?: string[];
+  period?: { from: string; to: string };
 }
 
-// Mapeamento exato de cores baseado no padrão dos gráficos de share/rede
 const CANDIDATE_COLOR_MAP: { [key: string]: { border: string; badge: string } } = {
   'augusto_cury': { 
     border: 'border-l-blue-500', 
@@ -41,7 +42,15 @@ const DEFAULT_COLOR = {
   badge: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200' 
 };
 
-export function HashtagCloud({ entities }: UnifiedHashtagCloudProps) {
+const NETWORK_LABELS: Record<string, string> = {
+  youtube: 'YouTube',
+  reddit: 'Reddit',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  meta_ads: 'Meta Ads'
+};
+
+export function HashtagCloud({ entities, networks = [], period }: UnifiedHashtagCloudProps) {
   const [dataPorCandidato, setDataPorCandidato] = useState<{ [key: string]: { name: string; hashtags: HashtagItem[] } }>({});
   const [loading, setLoading] = useState(true);
 
@@ -54,15 +63,40 @@ export function HashtagCloud({ entities }: UnifiedHashtagCloudProps) {
 
     setLoading(true);
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    
+    const params = new URLSearchParams();
+    if (networks.length > 0) {
+      params.append('networks', networks.join(','));
+    }
+    const qs = params.toString() ? `?${params.toString()}` : '';
+
     Promise.all(
       entities.map((entity) =>
-        fetch(`${baseUrl}/hashtags/${entity.id}`)
+        fetch(`${baseUrl}/hashtags/${entity.id}${qs}`)
           .then((res) => (res.ok ? res.json() : []))
-          .then((data: HashtagItem[]) => ({
-            id: entity.id,
-            name: entity.name,
-            hashtags: data.slice(0, 15),
-          }))
+          .then((data: HashtagItem[]) => {
+            const filtered = networks.length > 0 
+              ? data.filter(item => networks.includes(item.fonte_codigo))
+              : data;
+
+            const aggregatedMap = new Map<string, HashtagItem>();
+            
+            filtered.forEach(item => {
+              if (aggregatedMap.has(item.hashtag)) {
+                aggregatedMap.get(item.hashtag)!.contagem += item.contagem;
+              } else {
+                aggregatedMap.set(item.hashtag, { ...item });
+              }
+            });
+
+            const aggregated = Array.from(aggregatedMap.values()).sort((a, b) => b.contagem - a.contagem);
+
+            return {
+              id: entity.id,
+              name: entity.name,
+              hashtags: aggregated.slice(0, 15),
+            };
+          })
           .catch(() => ({ id: entity.id, name: entity.name, hashtags: [] }))
       )
     )
@@ -78,7 +112,7 @@ export function HashtagCloud({ entities }: UnifiedHashtagCloudProps) {
         console.error('Erro ao buscar hashtags:', err);
         setLoading(false);
       });
-  }, [entities]);
+  }, [entities, networks, period]);
 
   if (loading) {
     return (
@@ -94,12 +128,19 @@ export function HashtagCloud({ entities }: UnifiedHashtagCloudProps) {
 
   return (
     <div className="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 w-full">
-      <h3 className="text-base font-semibold text-gray-900 mb-6 flex items-center gap-2">
-        <span className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
-          <Hash className="w-4 h-4" />
-        </span>
-        <span>Hashtags mais frequentes por candidato</span>
-      </h3>
+      <div className="mb-6">
+        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <span className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+            <Hash className="w-4 h-4" />
+          </span>
+          <span>Hashtags mais frequentes por candidato</span>
+        </h3>
+        <p className="text-sm text-gray-500 mt-1 ml-[34px]">
+          {networks.length === 0 
+            ? 'Todas as redes' 
+            : networks.map(n => NETWORK_LABELS[n] || n).join(' · ')}
+        </p>
+      </div>
 
       <div className="space-y-6">
         {entities.map((entity) => {

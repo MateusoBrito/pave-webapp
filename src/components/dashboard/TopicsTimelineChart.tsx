@@ -1,5 +1,5 @@
 import { AlertTriangle, MousePointerClick, TrendingUp } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { getTopicCalendar } from '../../api/client'
@@ -10,6 +10,7 @@ import { formatFullDate, formatShortDate, yesterdayIsoDate } from '../../lib/dat
 import { candidateColor, predominantSentiment, sentimentColor } from '../../lib/colors'
 import type { Entity, Network, TopicSentiment } from '../../types'
 import { IconTile } from '../ui/IconTile'
+import { SegmentedControl } from '../ui/SegmentedControl'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
 import { SentimentBar } from './SentimentBar'
@@ -70,10 +71,12 @@ export function TopicsTimelineChart({
     activeSentiment &&
     activeSentiment.sentiment.negative + activeSentiment.sentiment.neutral + activeSentiment.sentiment.positive > 0
 
+  const [requireTopic, setRequireTopic] = useState<'all' | 'topics_only'>('all')
+
   const period = { from: daysAgoIso(WINDOW_DAYS), to: yesterdayIsoDate() }
   const { data, loading, error, refetch } = useAsync(
-    () => (activeId ? getTopicCalendar([activeId], network, period) : Promise.resolve(undefined)),
-    [activeId, network],
+    () => (activeId ? getTopicCalendar([activeId], network, period, requireTopic === 'topics_only') : Promise.resolve(undefined)),
+    [activeId, network, requireTopic],
   )
 
   const chartData = (data?.entities[0]?.days ?? []).map((d) => ({
@@ -119,6 +122,17 @@ export function TopicsTimelineChart({
               Clique num ponto para ver os tópicos daquele dia
             </p>
           </div>
+        </div>
+
+        <div className="hidden sm:block">
+          <SegmentedControl
+            value={requireTopic}
+            onChange={(val) => setRequireTopic(val as 'all' | 'topics_only')}
+            options={[
+              { value: 'all', label: 'Todos os docs' },
+              { value: 'topics_only', label: 'Com tópico' },
+            ]}
+          />
         </div>
 
         {hasSentiment && activeSentiment && (

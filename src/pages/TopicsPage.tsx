@@ -1,3 +1,4 @@
+import { MessageSquare, Play } from 'lucide-react'
 import {
   getCandidateSentimentBreakdown,
   getEntities,
@@ -66,6 +67,20 @@ export function TopicsPage() {
 
   return (
     <>
+      {network === 'youtube' && (
+        <div className="flex items-center gap-2.5 rounded-2xl bg-[var(--tint-coral)] px-4 py-3 text-sm text-[var(--tint-text-coral)]">
+          <Play size={14} fill="currentColor" strokeWidth={0} className="shrink-0 text-[var(--color-coral)]" />
+          Esta análise cobre comentários publicados nos vídeos de canais jornalísticos.
+        </div>
+      )}
+
+      {network === 'reddit' && (
+        <div className="flex items-center gap-2.5 rounded-2xl bg-[var(--tint-amber)] px-4 py-3 text-sm text-[var(--tint-text-amber)]">
+          <MessageSquare size={16} className="shrink-0 text-[var(--color-amber)]" />
+          Esta análise cobre publicações e comentários de subreddits brasileiros sobre política.
+        </div>
+      )}
+
       <TopicsTimelineChart
         entities={entities}
         network={network}

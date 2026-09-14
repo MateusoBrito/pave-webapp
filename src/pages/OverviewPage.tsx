@@ -230,7 +230,11 @@ export function OverviewPage() {
         />
       </section>
 
-      <HashtagCloud entities={selectedEntities} />
+      <HashtagCloud 
+        entities={selectedEntities} 
+        period={period}
+        networks={networks}
+      />
 
       <TopTopicsTable
         groups={gruposDeTopicos}

@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Clock,
   Eye,
-  ImageOff,
   Inbox,
   Megaphone,
   SquareArrowOutUpRight,
@@ -179,35 +178,48 @@ export function AdExamplesCarousel({
                   {doc.text}
                 </p>
 
-                <div className="flex h-[146px] flex-col items-center justify-center gap-2 bg-[var(--page-plane)] p-5 text-center">
-                  <ImageOff size={26} className="text-[var(--text-muted)]" />
-                  <p className="text-[10px] font-semibold text-[var(--text-secondary)]">
-                    A Ad Library não devolve a imagem
-                  </p>
-                  <Button
-                    variant="outline"
-                    disabled
-                    title="Link direto para a Ad Library ainda não integrado"
-                    className="px-2.5 py-1.5 text-[10px]"
-                  >
-                    Abrir no Ad Library
-                    <SquareArrowOutUpRight size={11} />
-                  </Button>
+                <div className="flex items-center justify-between gap-2 border-y border-[var(--gridline)] bg-[var(--page-plane)] px-3.5 py-2.5">
+                  <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+                    Criativo do anúncio
+                  </span>
+                  {(() => {
+                    const nativeId = doc.id_nativo || doc.idNativo
+                    return (
+                      <Button
+                        variant="outline"
+                        title={nativeId ? 'Ver no Meta Ad Library' : 'ID nativo não disponível'}
+                        className="px-2.5 py-1.5 text-[10px]"
+                        disabled={!nativeId}
+                        onClick={() => {
+                          if (nativeId) {
+                            window.open(
+                              `https://www.facebook.com/ads/library/?id=${nativeId}`,
+                              '_blank',
+                            )
+                          }
+                        }}
+                      >
+                        Abrir no Ad Library
+                        <SquareArrowOutUpRight size={11} />
+                      </Button>
+                    )
+                  })()}
                 </div>
 
-                <div className="flex items-center justify-between gap-2 bg-[var(--gridline)]/60 px-3.5 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-[8px] font-bold tracking-wide text-[var(--text-muted)] uppercase">
-                      {ad.domain}
-                    </p>
-                    <p className="truncate text-xs font-bold text-[var(--text-primary)]">
-                      {ad.headline}
-                    </p>
+                {(ad.domain || ad.headline) && (
+                  <div className="bg-[var(--gridline)]/40 px-3.5 py-2">
+                    {ad.domain && (
+                      <p className="truncate text-[8px] font-bold tracking-wide text-[var(--text-muted)] uppercase">
+                        {ad.domain}
+                      </p>
+                    )}
+                    {ad.headline && (
+                      <p className="truncate text-xs font-bold text-[var(--text-primary)]">
+                        {ad.headline}
+                      </p>
+                    )}
                   </div>
-                  <span className="shrink-0 rounded-[7px] bg-[var(--chart-surface)] px-3 py-2 text-[11px] font-semibold text-[var(--text-secondary)]">
-                    {ad.cta}
-                  </span>
-                </div>
+                )}
 
                 <div className="flex flex-col gap-2 px-3.5 pt-3 pb-3.5">
                   <p className="flex items-center gap-2 text-[11px] font-semibold text-[var(--text-secondary)]">

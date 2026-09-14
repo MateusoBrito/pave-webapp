@@ -163,11 +163,13 @@ export function getTopicCalendar(
   entityIds: string[],
   network: Network,
   period: PeriodFilter,
+  requireTopic: boolean = false,
 ): Promise<TopicCalendarResult> {
   return apiGet<TopicCalendarResult>('/topics/calendar', {
     ...periodParams(period),
     candidates: entityIds,
     network,
+    require_topic: requireTopic,
   })
 }
 
@@ -186,6 +188,7 @@ export interface TopicDetail {
    * da página em vez do filtro global, ver TopicDrilldownPage.tsx. */
   periodStart: string
   periodEnd: string
+  description?: string | null
 }
 
 export function getTopicDetail(

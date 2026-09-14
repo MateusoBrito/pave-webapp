@@ -79,6 +79,7 @@ def _build_topic(row, weight: float) -> Topic:
         id=compose_topic_id(row.topico_id, row.entidade),
         entity_id=row.entidade,
         label=topic_label(row.rotulo, row.numero, row.palavras_chave),
+        description=row.descricao,
         weight=weight,
         tags=list(row.palavras_chave or []),
         emergent=topic_emergent(row.revisado),
@@ -101,6 +102,7 @@ async def _ranking_rows(
         Topico.numero,
         Topico.palavras_chave,
         Topico.revisado,
+        Topico.descricao,
         func.count().label("mentions"),
         NEGATIVE.label("negative"),
         NEUTRAL.label("neutral"),
@@ -130,6 +132,7 @@ async def _ranking_rows(
         Topico.numero,
         Topico.palavras_chave,
         Topico.revisado,
+        Topico.descricao,
     )
     return (await session.execute(stmt)).all()
 
@@ -287,6 +290,7 @@ async def topics_by_subdivision(
             Topico.numero,
             Topico.palavras_chave,
             Topico.revisado,
+            Topico.descricao,
             func.count().label("mentions"),
             start=period.start,
             end=period.end,
@@ -312,6 +316,7 @@ async def topics_by_subdivision(
             Topico.numero,
             Topico.palavras_chave,
             Topico.revisado,
+            Topico.descricao,
         )
     )
     rows = (await session.execute(stmt)).all()
@@ -346,7 +351,7 @@ async def topics_by_subdivision(
 
 
 async def topic_calendar(
-    session: AsyncSession, entity_ids: list[str], network: Network, start: Date, end: Date,
+    session: AsyncSession, entity_ids: list[str], network: Network, start: Date, end: Date, require_topic: bool = False
 ) -> TopicCalendarResult:
     """GET /topics/calendar — um mini-calendário por candidato (ver TopicsCalendarCard
     no front, navegação por mês): o tópico de maior volume de cada dia entre `start` e
@@ -382,7 +387,7 @@ async def topic_calendar(
         func.count().label("contagem"),
         start=start, end=end,
         entity_ids=entity_ids, networks=[network],
-        with_topic=True, with_sentiment=False,
+        with_topic=require_topic, outerjoin_topic=not require_topic, with_sentiment=False,
     ).group_by(dia_expr, AlvoColeta.entidade_codigo, Topico.id, Topico.rotulo, Topico.numero, Topico.palavras_chave)
     rows = (await session.execute(stmt)).all()
 
@@ -393,9 +398,10 @@ async def topic_calendar(
     for row in rows:
         chave = (row.entidade, row.dia)
         volume_por_dia[chave] = volume_por_dia.get(chave, 0) + row.contagem
-        atual = melhor_por_dia.get(chave)
-        if atual is None or row.contagem > atual[0]:
-            melhor_por_dia[chave] = (row.contagem, row)
+        if row.topico_id is not None:
+            atual = melhor_por_dia.get(chave)
+            if atual is None or row.contagem > atual[0]:
+                melhor_por_dia[chave] = (row.contagem, row)
 
     entities_result = []
     for entity_id in entity_ids:
@@ -403,16 +409,22 @@ async def topic_calendar(
         dia = start
         while dia <= end:
             chave = (entity_id, dia)
-            melhor = melhor_por_dia.get(chave)
-            if melhor is None:
+            if chave not in volume_por_dia:
                 dias.append(TopicCalendarDay(date=dia))
             else:
-                _, row = melhor
-                dias.append(TopicCalendarDay(
-                    date=dia,
-                    top_label=topic_label(row.rotulo, row.numero, row.palavras_chave),
-                    mentions=volume_por_dia[chave],
-                ))
+                melhor = melhor_por_dia.get(chave)
+                if melhor is None:
+                    dias.append(TopicCalendarDay(
+                        date=dia,
+                        mentions=volume_por_dia[chave],
+                    ))
+                else:
+                    _, row = melhor
+                    dias.append(TopicCalendarDay(
+                        date=dia,
+                        top_label=topic_label(row.rotulo, row.numero, row.palavras_chave),
+                        mentions=volume_por_dia[chave],
+                    ))
             dia += timedelta(days=1)
         entities_result.append(TopicCalendarEntity(entity_id=entity_id, days=dias))
 
