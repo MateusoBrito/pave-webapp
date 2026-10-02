@@ -1,7 +1,7 @@
 import {
   AlertTriangle,
   ArrowUpRight,
-  Calendar,
+  Flame,
   MessageSquare,
   Thermometer,
   TrendingUp,
@@ -28,9 +28,12 @@ import { StatusCard } from '../components/ui/StatusCard'
 import { useFilters } from '../context/FiltersContext'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
-import type { SentimentLabel } from '../types'
-import { formatDateRange } from '../lib/dates'
-import { formatCompactNumber, formatPercent, formatSignedPercent } from '../lib/format'
+import { NETWORKS } from '../types'
+import type { Network, SentimentLabel } from '../types'
+import { peakDay } from '../lib/chartData'
+import { agruparPorEntidade } from '../lib/ranking'
+import { allTimePeriod, formatShortDate } from '../lib/dates'
+import { formatCompactNumber, formatPercent } from '../lib/format'
 
 const SENTIMENT_LABEL: Record<SentimentLabel, string> = {
   negative: 'Negativo',
@@ -47,12 +50,33 @@ const HIGHLIGHT_STYLE: Record<string, { icon: LucideIcon; tone: IconTone }> = {
   network_growth: { icon: ArrowUpRight, tone: 'green' },
 }
 
-export function OverviewPage() {
-  const { candidateIds, networks, period } = useFilters()
-  usePageHeader(
-    'Visão Geral',
-    `O que está movimentando a conversa eleitoral? · ${formatDateRange(period)}`,
+/** Descreve de quais redes o "clima dos comentários" foi somado — precisa acompanhar o
+ * filtro de rede, e reproduzir o mesmo recorte do `OrganicScope` da API: Meta Ads sai
+ * sempre (anúncio pago não tem reação pública coletável), e filtro vazio = todas. */
+function organicScopeNote(networks: Network[]): string {
+  const organic = NETWORKS.filter(
+    (n) => n.id !== 'meta_ads' && (networks.length === 0 || networks.includes(n.id)),
   )
+  if (organic.length === 0) {
+    return 'Nenhuma rede orgânica no filtro · anúncios da Meta não têm sentimento'
+  }
+
+  const nomes = organic.map((n) => n.label)
+  const lista =
+    nomes.length === 1 ? nomes[0] : `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`
+  const base = nomes.length === 1 ? `Somente ${lista}` : `Soma de ${lista}`
+
+  const metaNoFiltro = networks.length === 0 || networks.includes('meta_ads')
+  return metaNoFiltro ? `${base} · anúncios da Meta não entram` : base
+}
+
+export function OverviewPage() {
+  const { candidateIds, networks } = useFilters()
+  // Sem seletor de período aqui - a Visão Geral sempre mostra tudo que o Postgres
+  // retém (ver allTimePeriod). Escolher um período específico é papel das outras
+  // telas, agora que os tópicos são por dia (ver PeriodFilterCard/DayFilterCard).
+  const period = allTimePeriod()
+  usePageHeader('Visão Geral', 'O que está movimentando a conversa eleitoral?')
 
   const { data: entities = [] } = useAsync(() => getEntities(), [])
   const selectedEntities =
@@ -91,7 +115,16 @@ export function OverviewPage() {
     loading: rankingLoading,
     error: rankingError,
     refetch: refetchRanking,
-  } = useAsync(() => getTopicRanking(candidateIds, period, networks, 10), deps)
+    // Sem `limit`: o corte sai por candidato, depois do agrupamento. Cortado no servidor,
+    // o top 10 vinha inteiro do candidato de maior volume (ver agruparPorEntidade).
+  } = useAsync(() => getTopicRanking(candidateIds, period, networks), deps)
+  // Com um candidato só não há com quem dividir a lista — mantém a profundidade de antes.
+  const gruposDeTopicos = agruparPorEntidade(
+    ranking,
+    (r) => r.topic.entityId,
+    (r) => r.mentions,
+    selectedEntities.length > 1 ? 3 : 10,
+  )
   const { data: highlights = [] } = useAsync(
     () => getHighlights(candidateIds, period, networks),
     deps,
@@ -102,26 +135,35 @@ export function OverviewPage() {
     ? sentiment.negative + sentiment.neutral + sentiment.positive || 1
     : 1
   const predominant = summary?.predominantSentiment ?? 'neutral'
+  const peak = peakDay(volume, (p) => p.mentions)
 
   return (
     <>
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {summaryError ? (
+        {summaryError || volumeError ? (
           <div className="sm:col-span-3">
             <StatusCard
               icon={AlertTriangle}
               tone="coral"
               title="Não foi possível carregar"
               description="Falha ao consultar a API. Seus filtros foram mantidos — é só tentar de novo."
-              primaryAction={{ label: 'Tentar novamente', onClick: refetchSummary }}
+              primaryAction={{
+                label: 'Tentar novamente',
+                onClick: () => {
+                  refetchSummary()
+                  refetchVolume()
+                },
+              }}
               secondaryAction={{
-                label: `Copiar código do erro · ${summaryError.message || '500'}`,
+                label: `Copiar código do erro · ${(summaryError || volumeError)?.message || '500'}`,
                 onClick: () =>
-                  navigator.clipboard?.writeText(summaryError.message || '500'),
+                  navigator.clipboard?.writeText(
+                    (summaryError || volumeError)?.message || '500',
+                  ),
               }}
             />
           </div>
-        ) : summaryLoading || !summary ? (
+        ) : summaryLoading || !summary || volumeLoading ? (
           <>
             <KpiCardSkeleton />
             <KpiCardSkeleton />
@@ -134,24 +176,11 @@ export function OverviewPage() {
               tone="purple"
               label="Menções coletadas"
               value={formatCompactNumber(summary.totalMentions)}
-              subtext={`${formatSignedPercent(summary.deltaPct)} vs. período anterior`}
-              subtextColor={
-                summary.deltaPct >= 0
-                  ? 'var(--tint-text-green)'
-                  : 'var(--tint-text-coral)'
-              }
-            />
-            <KpiCard
-              icon={Calendar}
-              tone="green"
-              label="Cobertura da coleta"
-              value={`${summary.daysCovered}/${summary.totalDays} dias`}
-              subtext={`${summary.totalNetworks} plataformas`}
             />
             <KpiCard
               icon={Thermometer}
               tone={SENTIMENT_TONE[predominant]}
-              label="Clima do debate"
+              label="Clima dos comentários"
               value={SENTIMENT_LABEL[predominant]}
               subtext={
                 sentiment
@@ -160,11 +189,19 @@ export function OverviewPage() {
                     )} neutro · ${formatPercent((sentiment.positive / sentimentTotal) * 100)} positivo`
                   : undefined
               }
-              subtextSecondary="Soma de Reddit e YouTube · anúncios da Meta não entram"
+              subtextSecondary={organicScopeNote(networks)}
+            />
+            <KpiCard
+              icon={Flame}
+              tone="amber"
+              label="Pico de menções"
+              value={peak ? formatCompactNumber(peak.total) : '—'}
+              subtext={peak ? `em ${formatShortDate(peak.date)}` : 'sem dados no período'}
             />
           </>
         )}
       </section>
+
 
       <VolumeOverTimeChart
         entities={selectedEntities}
@@ -192,8 +229,16 @@ export function OverviewPage() {
         />
       </section>
 
+      {/* 
+      <HashtagCloud 
+        entities={selectedEntities} 
+        period={period}
+        networks={networks}
+      />
+      */}
+
       <TopTopicsTable
-        rows={ranking}
+        groups={gruposDeTopicos}
         entities={entities}
         loading={rankingLoading}
         error={rankingError}

@@ -25,3 +25,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# API Python
+api/.venv/
+api/.env
+__pycache__/

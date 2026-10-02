@@ -105,7 +105,7 @@ function CommentCard({
         </span>
       </div>
       <p className="text-xs leading-relaxed text-[var(--text-primary)]">
-        &ldquo;{comment.text}&rdquo;
+        {comment.text}
       </p>
       <span className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
         <ArrowBigUp size={13} strokeWidth={2} />

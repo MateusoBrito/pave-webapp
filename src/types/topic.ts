@@ -7,6 +7,7 @@ export interface Topic {
   id: string
   entityId: string
   label: string
+  description?: string | null
   /** overall share of the entity's own documents this topic represents, 0-1 */
   weight: number
   tags: string[]

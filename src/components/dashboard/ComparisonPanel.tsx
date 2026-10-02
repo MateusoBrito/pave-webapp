@@ -12,7 +12,7 @@ import { CandidateTopicsModal } from './CandidateTopicsModal'
 import { SentimentBar } from './SentimentBar'
 
 interface Props {
-  tag: 'A' | 'B'
+  tag: string
   summary: ComparisonCandidateSummary | undefined
   /** share do candidato sobre o total de menções de A+B somados neste comparativo */
   sharePct: number
@@ -23,7 +23,7 @@ interface Props {
   period: PeriodFilter
 }
 
-/** Painel espelhado do Comparativo — um por candidato (A à esquerda, B à direita). */
+/** Painel espelhado do Comparativo — um por candidato selecionado. */
 export function ComparisonPanel({
   tag,
   summary,

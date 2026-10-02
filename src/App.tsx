@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { FilterBar } from './components/filters/FilterBar'
 import { Sidebar } from './components/layout/Sidebar'
 import { TopBar } from './components/layout/TopBar'
@@ -8,6 +8,10 @@ import { PageHeaderProvider } from './context/PageHeaderContext'
 
 function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  
+  const location = useLocation()
+  
+  const isAboutPage = location.pathname === '/sobre'
 
   return (
     <FiltersProvider>
@@ -16,7 +20,9 @@ function App() {
           <Sidebar open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
           <div className="flex flex-col lg:ml-[280px]">
             <TopBar onMenuClick={() => setMobileNavOpen(true)} />
-            <FilterBar />
+            
+            {!isAboutPage && <FilterBar />}
+            
             <main className="flex flex-col gap-6 px-4 pt-6 pb-4 sm:px-6 sm:pb-6">
               <Outlet />
             </main>

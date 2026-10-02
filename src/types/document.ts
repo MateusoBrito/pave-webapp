@@ -21,6 +21,9 @@ export interface AdMetadata {
 /** Example post/comment used in the topic drill-down, mirrors the Mongo raw layer. */
 export interface TopicDocument {
   id: string
+  /** ID original na plataforma de origem (ex: ID do anúncio no Facebook) */
+  id_nativo?: string
+  idNativo?: string
   topicId: string
   entityId: string
   network: Network

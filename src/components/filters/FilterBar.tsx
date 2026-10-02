@@ -1,8 +1,7 @@
-import { Info } from 'lucide-react'
 import { useMatch } from 'react-router-dom'
+import { ActiveDateDisplay } from './ActiveDateDisplay'
 import { CandidateAvatarFilter } from './CandidateAvatarFilter'
 import { NetworkChipFilter } from './NetworkChipFilter'
-import { PeriodFilterCard } from './PeriodFilterCard'
 
 /**
  * Filtros globais, refletidos na URL — mas o que aparece muda por rota: o drill-down
@@ -12,6 +11,7 @@ import { PeriodFilterCard } from './PeriodFilterCard'
 export function FilterBar() {
   const isTopics = useMatch('/topicos')
   const isTopicDetail = useMatch('/topicos/:topicId')
+  const isAdTopicDetail = useMatch('/anuncios/:topicId')
   const isComparison = useMatch('/comparativo')
   const isMethodology = useMatch('/metodologia')
   const isPosts = useMatch('/posts')
@@ -25,57 +25,42 @@ export function FilterBar() {
   if (isPosts) return null
 
   // "O que os usuários comentam?" é sempre uma rede por vez (Reddit ou YouTube) — Meta
-  // Ads não entra: é conteúdo do candidato, não do público (ver PostsPage)
+  // Ads não entra: é conteúdo do candidato, não do público (ver PostsPage). O dia é
+  // escolhido dentro da própria página agora, clicando no TopicsCalendarCard - não tem
+  // mais um card de dia aqui (ver DayFilterCard, removido).
   if (isTopics) {
     return (
       <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <CandidateAvatarFilter />
-          <PeriodFilterCard />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <CandidateAvatarFilter singleSelect />
           <NetworkChipFilter
             singleSelect
             title="Qual plataforma?"
             options={['youtube', 'reddit']}
           />
+          <ActiveDateDisplay />
         </div>
       </div>
     )
   }
 
-  if (isTopicDetail) {
-    return (
-      <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
-          <div className="md:w-[360px] md:shrink-0">
-            <PeriodFilterCard />
-          </div>
-          <div className="flex flex-1 items-start gap-3 rounded-2xl border border-[var(--baseline)] bg-[var(--tint-primary)] px-5 py-[18px]">
-            <Info size={18} className="mt-0.5 shrink-0 text-[var(--tint-text-primary)]" />
-            <div>
-              <p className="text-xs font-bold text-[var(--tint-text-primary)]">
-                Aqui não há filtro de candidato, rede ou assunto
-              </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-                O tópico já nasce associado a um candidato e a uma rede — o modelo gera
-                conjuntos separados para cada combinação. Só o período faz sentido
-                ajustar.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Drill-down de tópico (orgânico e anúncio): o único filtro global que se aplica é o
+  // período — o tópico já nasce associado a um candidato (e, no orgânico, a uma rede).
+  // Essa identidade só a página conhece (TopicHeader/AdTopicHeader carregam o detalhe do
+  // tópico), então o período + a nota de identidade são responsabilidade da própria
+  // página agora, não deste componente global.
+  if (isTopicDetail || isAdTopicDetail) return null
 
   // comparativo tem sua própria ordem (seletor de candidatos antes do período/rede,
   // conforme Figma) — os filtros são renderizados dentro de ComparisonPage
   if (isComparison) return null
 
+  // Visão Geral (única rota que cai aqui - ver comentários acima) sempre mostra todo
+  // o período disponível, sem seletor - ver OverviewPage/allTimePeriod.
   return (
     <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <CandidateAvatarFilter />
-        <PeriodFilterCard />
         <NetworkChipFilter />
       </div>
     </div>

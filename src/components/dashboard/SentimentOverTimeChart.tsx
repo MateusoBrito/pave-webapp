@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import type { TooltipContentProps } from 'recharts'
 import type { SentimentSeriesPoint } from '../../api/client'
 import { useFilters } from '../../context/FiltersContext'
 import { sentimentColor } from '../../lib/colors'
@@ -15,7 +16,6 @@ import { formatShortDate } from '../../lib/dates'
 import { IconTile } from '../ui/IconTile'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
-import { ChartTooltip } from './ChartTooltip'
 
 interface Props {
   points: SentimentSeriesPoint[]
@@ -40,6 +40,41 @@ export function SentimentOverTimeChart({ points, loading, error, refetch }: Prop
   }))
   const isEmpty =
     !loading && !error && data.every((d) => d.Negativo + d.Neutro + d.Positivo === 0)
+
+  // Custom instead of the shared ChartTooltip: mantém a contagem absoluta (o volume do
+  // dia continua sendo o que a altura da barra mostra - um pico de menções não pode virar
+  // visualmente igual a um dia fraco), só acrescenta o percentual do dia ao lado, sem
+  // precisar de um toggle 100%/empilhado separado.
+  function renderTooltip({ active, payload, label }: TooltipContentProps) {
+    if (!active || !payload || payload.length === 0) return null
+    const total = payload.reduce((sum, entry) => sum + Number(entry.value ?? 0), 0) || 1
+    return (
+      <div className="rounded-lg border border-[var(--baseline)] bg-[var(--chart-surface)] px-3 py-2 shadow-lg">
+        <p className="mb-1 text-xs text-[var(--text-muted)]">{formatShortDate(String(label))}</p>
+        <dl className="space-y-1">
+          {payload
+            .filter((entry) => entry.value !== undefined)
+            .map((entry) => {
+              const value = Number(entry.value ?? 0)
+              const pct = Math.round((value / total) * 100)
+              return (
+                <div key={String(entry.dataKey)} className="flex items-center gap-2 text-sm">
+                  <span
+                    className="inline-block h-0.5 w-3"
+                    style={{ backgroundColor: String(entry.color) }}
+                  />
+                  <dd className="font-semibold text-[var(--text-primary)]">
+                    {value.toLocaleString('pt-BR')}{' '}
+                    <span className="font-normal text-[var(--text-secondary)]">({pct}%)</span>
+                  </dd>
+                  <dt className="text-[var(--text-secondary)]">{String(entry.name)}</dt>
+                </div>
+              )
+            })}
+        </dl>
+      </div>
+    )
+  }
 
   return (
     <section
@@ -122,10 +157,7 @@ export function SentimentOverTimeChart({ points, loading, error, refetch }: Prop
               tickLine={false}
               width={40}
             />
-            <Tooltip
-              content={(props) => <ChartTooltip {...props} />}
-              cursor={{ fill: 'var(--gridline)' }}
-            />
+            <Tooltip content={renderTooltip} cursor={{ fill: 'var(--gridline)' }} />
             <Bar
               dataKey="Negativo"
               stackId="s"

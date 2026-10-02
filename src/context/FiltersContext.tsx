@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { Network } from '../types'
 import type { PeriodFilter } from '../api/client'
-import { lastNDaysPeriod } from '../lib/dates'
+import { lastNDaysPeriod, yesterdayIsoDate } from '../lib/dates'
 
 const DEFAULT_DAYS = 30
 
@@ -13,9 +13,15 @@ export interface FiltersValue {
   networks: Network[]
   days: number
   period: PeriodFilter
+  /** Dia único (ISO) usado pelas telas de tópico - modelagem é por dia agora, não faz
+   * sentido um intervalo (ver PeriodFilterCard vs DayFilterCard). Default D-1, mesma
+   * âncora de lastNDaysPeriod - se aquele dia ainda não tiver modelo (ex: hoje mesmo),
+   * a API já cai no último dia disponível (vigente_model_ids em base.py). */
+  day: string
   setCandidateIds: (ids: string[]) => void
   setNetworks: (networks: Network[]) => void
   setDays: (days: number) => void
+  setDay: (day: string) => void
   clearFilters: () => void
 }
 
@@ -38,6 +44,7 @@ interface StoredFilters {
   candidates?: string
   networks?: string
   days?: string
+  day?: string
 }
 
 function readStored(): StoredFilters {
@@ -78,6 +85,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
   )
   const days = Number(searchParams.get('days') ?? readStored().days) || DEFAULT_DAYS
   const period = useMemo(() => lastNDaysPeriod(days), [days])
+  const day = searchParams.get('day') ?? readStored().day ?? yesterdayIsoDate()
 
   function update(patch: Record<string, string | null>) {
     setSearchParams(
@@ -99,9 +107,11 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     networks,
     days,
     period,
+    day,
     setCandidateIds: (ids) => update({ candidates: ids.join(',') || null }),
     setNetworks: (nets) => update({ networks: nets.join(',') || null }),
     setDays: (d) => update({ days: d === DEFAULT_DAYS ? null : String(d) }),
+    setDay: (d) => update({ day: d === yesterdayIsoDate() ? null : d }),
     clearFilters: () => {
       setSearchParams(new URLSearchParams(), { replace: true })
       try {

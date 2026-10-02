@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronLeft, ChevronRight, Grid3x3, Search } from 'lucid
 import { useEffect, useState } from 'react'
 import type { SubdivisionMatrix } from '../../api/client'
 import { useFilters } from '../../context/FiltersContext'
+import { candidateColor } from '../../lib/colors'
 import { shortName } from '../../lib/format'
 import type { Entity } from '../../types'
 import { FOCUS_RING } from '../ui/focusRing'
@@ -25,7 +26,7 @@ interface Props {
 }
 
 /** "Tópicos por subreddit" / "Tópicos por canal" — mesma visualização de heatmap para
- * as duas redes; no YouTube as colunas (canais oficiais dos candidatos) cabem todas de
+ * as duas redes; no YouTube as colunas (canais de notícias coletados) cabem todas de
  * uma vez, no Reddit (8 subreddits fixos) elas são paginadas de 3 em 3. */
 export function TopicsBySubdivisionGrid({
   matrix,
@@ -36,7 +37,8 @@ export function TopicsBySubdivisionGrid({
   refetch,
   entities,
 }: Props) {
-  const { clearFilters } = useFilters()
+  const { clearFilters, candidateIds } = useFilters()
+  const heatColor = candidateIds[0] ? candidateColor(candidateIds[0]) : 'var(--color-primary)'
   const [page, setPage] = useState(0)
   const columns = matrix?.columns ?? []
   const paginated = columns.length > VISIBLE_COLUMNS
@@ -66,7 +68,7 @@ export function TopicsBySubdivisionGrid({
           <div className="flex items-center gap-2">
             <p className="text-[10px] font-medium text-[var(--text-muted)]">
               {Math.min((page + 1) * VISIBLE_COLUMNS, columns.length)} de {columns.length}{' '}
-              subreddits
+              {columns.length > 2 ? 'canais' : 'subreddits'}
             </p>
             <button
               type="button"
@@ -150,7 +152,7 @@ export function TopicsBySubdivisionGrid({
                           key={c.key}
                           className="flex h-[30px] min-w-0 flex-1 items-center justify-center rounded-lg text-[10px] font-bold"
                           style={{
-                            backgroundColor: `color-mix(in srgb, var(--color-primary) ${step * 100}%, var(--tint-primary))`,
+                            backgroundColor: `color-mix(in srgb, ${heatColor} ${step * 100}%, white)`,
                             color: step >= 0.5 ? '#fff' : 'var(--text-secondary)',
                           }}
                         >

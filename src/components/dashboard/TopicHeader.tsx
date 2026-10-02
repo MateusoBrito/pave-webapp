@@ -1,18 +1,10 @@
 import { AlertTriangle, Hash, Search } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-import { Megaphone, MessageSquare, Play } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { TopicDetail } from '../../api/client'
-import type { Entity, Network, SentimentLabel, TopicSentiment } from '../../types'
-import {
-  candidateColor,
-  networkColor,
-  networkTint,
-  sentimentColor,
-} from '../../lib/colors'
+import type { Entity, Network } from '../../types'
+import { predominantSentiment, sentimentColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
 import { formatPercent } from '../../lib/format'
-import { Avatar } from '../ui/Avatar'
 import { IconTile } from '../ui/IconTile'
 import { Skeleton } from '../ui/Skeleton'
 import { StatusCard } from '../ui/StatusCard'
@@ -23,29 +15,10 @@ const SENTIMENT_LABEL: Record<string, string> = {
   positive: 'Positivo',
 }
 
-const NETWORK_ICON: Record<Network, LucideIcon> = {
-  youtube: Play,
-  reddit: MessageSquare,
-  meta_ads: Megaphone,
-}
 const NETWORK_LABEL: Record<Network, string> = {
   youtube: 'YouTube',
   reddit: 'Reddit',
   meta_ads: 'Meta Ads',
-}
-
-function predominant(sentiment: TopicSentiment): { label: SentimentLabel; pct: number } {
-  const total = sentiment.negative + sentiment.neutral + sentiment.positive || 1
-  if (
-    sentiment.negative >= sentiment.neutral &&
-    sentiment.negative >= sentiment.positive
-  ) {
-    return { label: 'negative', pct: (sentiment.negative / total) * 100 }
-  }
-  if (sentiment.positive >= sentiment.neutral) {
-    return { label: 'positive', pct: (sentiment.positive / total) * 100 }
-  }
-  return { label: 'neutral', pct: (sentiment.neutral / total) * 100 }
 }
 
 function Indicator({
@@ -148,12 +121,11 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
     )
   }
 
-  const { label: sentimentLabel, pct: sentimentPct } = predominant(detail.sentiment)
+  const { label: sentimentLabel, pct: sentimentPct } = predominantSentiment(detail.sentiment)
   const network = detail.dominantNetwork
-  const NetworkIcon = NETWORK_ICON[network]
-  const entityColor = ownerEntity
-    ? candidateColor(ownerEntity.id)
-    : 'var(--color-primary)'
+  const rawLabel = detail.topic.label || ''
+  const formattedLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1)
+  const hasDescription = detail.topic.description && detail.topic.description.trim() !== ''
 
   return (
     <section
@@ -173,7 +145,7 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
         </span>
         <span className="text-[var(--text-muted)]">/</span>
         <span className="text-[var(--text-secondary)]">
-          {detail.topic.label}
+          {formattedLabel}
           {ownerEntity ? ` · ${ownerEntity.name}` : ''}
         </span>
       </div>
@@ -182,55 +154,34 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
         <div className="flex items-center gap-4">
           <IconTile icon={Hash} tone="purple" size={52} />
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-                {detail.topic.label}
-              </h1>
-              {ownerEntity && (
-                <span
-                  className="flex items-center gap-1.5 rounded-lg py-1.5 pr-2.5 pl-2"
-                  style={{ backgroundColor: `${entityColor}1a` }}
-                >
-                  <Avatar
-                    name={ownerEntity.name}
-                    color={entityColor}
-                    size={18}
-                    photoUrl={ownerEntity.photoUrl}
-                  />
-                  <span className="text-[11px] font-bold" style={{ color: entityColor }}>
-                    {ownerEntity.name}
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+              {formattedLabel}
+            </h1>
+            
+            {/* Renderização condicional: Descrição OU pílulas de tags */}
+            {hasDescription ? (
+              <p className="text-sm font-medium text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+                {detail.topic.description}
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {detail.topic.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-[7px] bg-[var(--page-plane)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]"
+                  >
+                    {tag}
                   </span>
-                </span>
-              )}
-              <span
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
-                style={{ backgroundColor: networkTint(network) }}
-              >
-                <NetworkIcon size={11} style={{ color: networkColor(network) }} />
-                <span
-                  className="text-[11px] font-bold"
-                  style={{ color: networkColor(network) }}
-                >
-                  {NETWORK_LABEL[network]}
-                </span>
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {detail.topic.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-[7px] bg-[var(--page-plane)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+            
           </div>
         </div>
 
         <div className="flex flex-wrap gap-6">
           <Indicator label="Menções" value={detail.mentions.toLocaleString('pt-BR')} />
-          <Indicator label="Share do período" value={formatPercent(detail.sharePct)} />
+          <Indicator label="Participação no período" value={formatPercent(detail.sharePct)} />
           <div className="flex flex-col gap-1">
             <p className="text-[9px] font-bold tracking-[0.8px] text-[var(--text-muted)] uppercase">
               Sentimento
@@ -246,7 +197,7 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
             </p>
           </div>
           <Indicator
-            label="Pico"
+            label="Pico de menções"
             value={detail.peakDate ? formatShortDate(detail.peakDate) : '—'}
           />
         </div>

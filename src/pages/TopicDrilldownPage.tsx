@@ -1,4 +1,7 @@
+import { Megaphone, MessageSquare, Play } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useParams } from 'react-router-dom'
+import type { PeriodFilter } from '../api/client'
 import {
   getEntities,
   getSentimentSeries,
@@ -8,28 +11,42 @@ import {
   ORGANIC_NETWORKS,
 } from '../api/client'
 import { SentimentDonut } from '../components/dashboard/SentimentDonut'
-import { SentimentOverTimeChart } from '../components/dashboard/SentimentOverTimeChart'
 import { TopicExamplePosts } from '../components/dashboard/TopicExamplePosts'
 import { TopicHeader } from '../components/dashboard/TopicHeader'
-import { VolumeOverTimeChart } from '../components/dashboard/VolumeOverTimeChart'
-import { useFilters } from '../context/FiltersContext'
+import { TopicHourlySentimentChart } from '../components/dashboard/TopicHourlySentimentChart'
+import { TopicHourlyVolumeChart } from '../components/dashboard/TopicHourlyVolumeChart'
+import { Avatar } from '../components/ui/Avatar'
 import { usePageHeader } from '../context/PageHeaderContext'
 import { useAsync } from '../hooks'
-import { formatDateRange } from '../lib/dates'
+import { candidateColor, networkColor, networkTint } from '../lib/colors'
+import { formatDateRange, formatFullDate } from '../lib/dates'
+import type { Network } from '../types'
 
-// O tópico já nasce associado a um candidato (ver FilterBar) — o filtro de candidato
-// do resto do app não se aplica aqui, só o período. Rede sempre fica restrita às
-// orgânicas (YouTube/Reddit): Meta Ads é conteúdo pago do próprio candidato, não
-// conversa do público — mesma regra já usada em getTopicRanking/getOverviewSummary.
+const NETWORK_ICON: Record<Network, LucideIcon> = {
+  youtube: Play,
+  reddit: MessageSquare,
+  meta_ads: Megaphone,
+}
+const NETWORK_LABEL: Record<Network, string> = {
+  youtube: 'YouTube',
+  reddit: 'Reddit',
+  meta_ads: 'Meta Ads',
+}
+
+// O tópico já nasce associado a um candidato e a uma rede (ver FilterBar.tsx) — os
+// filtros globais de candidato/rede/período não se aplicam aqui. O período em si
+// também não: em vez do filtro global, a página sempre olha pra vigência do próprio
+// tópico (primeiro ao último documento atribuído a ele, ver detail.periodStart/End) -
+// um tópico não "muda" com o período, só os documentos que aparecem embaixo mudariam,
+// e olhar uma janela arbitrária corria o risco de cortar a maior parte da atividade
+// real dele. Rede sempre fica restrita às orgânicas (YouTube/Reddit): Meta Ads é
+// conteúdo pago do próprio candidato, não conversa do público.
 const NO_ENTITY_RESTRICTION: string[] = []
 
 export function TopicDrilldownPage() {
   const { topicId } = useParams<{ topicId: string }>()
-  const { period } = useFilters()
 
   const { data: entities = [] } = useAsync(() => getEntities(), [])
-
-  const deps = [topicId, period.from, period.to]
 
   const {
     data: detail,
@@ -39,20 +56,34 @@ export function TopicDrilldownPage() {
   } = useAsync(
     () =>
       topicId
-        ? getTopicDetail(topicId, NO_ENTITY_RESTRICTION, period, ORGANIC_NETWORKS)
+        ? getTopicDetail(topicId, NO_ENTITY_RESTRICTION, ORGANIC_NETWORKS)
         : Promise.resolve(undefined),
-    deps,
+    [topicId],
   )
 
   // cada tópico pertence a um candidato só
   const ownerEntity = detail
     ? entities.find((e) => e.id === detail.topic.entityId)
     : undefined
-  const topicOwnerEntities = ownerEntity ? [ownerEntity] : []
 
+  const topicPeriod: PeriodFilter | undefined = detail
+    ? { from: detail.periodStart, to: detail.periodEnd }
+    : undefined
+  const seriesDeps = [topicId, detail?.periodStart, detail?.periodEnd]
+
+  // O modelo é ajustado com os documentos de um dia, mas o "transform" de 2 em 2
+  // horas pode atribuir documentos atrasados de outro dia ao mesmo tópico depois -
+  // periodStart/periodEnd nem sempre são o mesmo dia. Mostra intervalo só quando
+  // precisa, não força um "de X a X" degenerado no caso comum de um dia só.
   usePageHeader(
-    'Drill-down de Tópico',
-    `${detail?.topic.label ?? '...'} · ${formatDateRange(period)}`,
+    'Detalhes do Tópico',
+    detail
+      ? `${detail.topic.label} · ${
+          detail.periodStart === detail.periodEnd
+            ? formatFullDate(detail.periodStart)
+            : formatDateRange({ from: detail.periodStart, to: detail.periodEnd })
+        }`
+      : '...',
   )
 
   const {
@@ -62,15 +93,10 @@ export function TopicDrilldownPage() {
     refetch: refetchSeries,
   } = useAsync(
     () =>
-      topicId
-        ? getTopicCandidateSeries(
-            topicId,
-            NO_ENTITY_RESTRICTION,
-            period,
-            ORGANIC_NETWORKS,
-          )
+      topicId && topicPeriod
+        ? getTopicCandidateSeries(topicId, NO_ENTITY_RESTRICTION, topicPeriod, ORGANIC_NETWORKS)
         : Promise.resolve([]),
-    deps,
+    seriesDeps,
   )
   const {
     data: sentimentSeries = [],
@@ -79,10 +105,10 @@ export function TopicDrilldownPage() {
     refetch: refetchSentiment,
   } = useAsync(
     () =>
-      topicId
-        ? getSentimentSeries(topicId, NO_ENTITY_RESTRICTION, period, ORGANIC_NETWORKS)
+      topicId && topicPeriod
+        ? getSentimentSeries(topicId, NO_ENTITY_RESTRICTION, topicPeriod, ORGANIC_NETWORKS)
         : Promise.resolve([]),
-    deps,
+    seriesDeps,
   )
   const {
     data: documents = [],
@@ -91,17 +117,51 @@ export function TopicDrilldownPage() {
     refetch: refetchDocuments,
   } = useAsync(
     () =>
-      topicId
-        ? getTopicDocuments(topicId, {
+      topicId && topicPeriod
+        ? getTopicDocuments(topicId, topicPeriod, {
             entityIds: NO_ENTITY_RESTRICTION,
             networks: ORGANIC_NETWORKS,
           })
         : Promise.resolve([]),
-    deps,
+    seriesDeps,
   )
+
+  const entityColor = ownerEntity ? candidateColor(ownerEntity.id) : 'var(--color-primary)'
+  const network = detail?.dominantNetwork
+  const NetworkIcon = network ? NETWORK_ICON[network] : undefined
 
   return (
     <>
+      <div className="flex flex-wrap items-center gap-3">
+        {ownerEntity && (
+          <span
+            className="flex items-center gap-2.5 rounded-xl py-2 pr-4 pl-2"
+            style={{ backgroundColor: `${entityColor}1a` }}
+          >
+            <Avatar
+              name={ownerEntity.name}
+              color={entityColor}
+              size={36}
+              photoUrl={ownerEntity.photoUrl}
+            />
+            <span className="text-lg font-bold" style={{ color: entityColor }}>
+              {ownerEntity.name}
+            </span>
+          </span>
+        )}
+        {network && NetworkIcon && (
+          <span
+            className="flex items-center gap-2.5 rounded-xl px-4 py-2.5"
+            style={{ backgroundColor: networkTint(network) }}
+          >
+            <NetworkIcon size={20} style={{ color: networkColor(network) }} />
+            <span className="text-lg font-bold" style={{ color: networkColor(network) }}>
+              {NETWORK_LABEL[network]}
+            </span>
+          </span>
+        )}
+      </div>
+
       <TopicHeader
         detail={detail}
         ownerEntity={ownerEntity}
@@ -111,15 +171,12 @@ export function TopicDrilldownPage() {
       />
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <VolumeOverTimeChart
-          entities={topicOwnerEntities}
+        <TopicHourlyVolumeChart
+          entity={ownerEntity}
           points={candidateSeries}
           loading={seriesLoading}
           error={seriesError}
           refetch={refetchSeries}
-          period={period}
-          title="Evolução do tópico"
-          subtitle="Menções por dia"
         />
         <SentimentDonut
           sentiment={detail?.sentiment}
@@ -129,7 +186,7 @@ export function TopicDrilldownPage() {
         />
       </section>
 
-      <SentimentOverTimeChart
+      <TopicHourlySentimentChart
         points={sentimentSeries}
         loading={sentimentLoading}
         error={sentimentError}

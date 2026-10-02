@@ -1,0 +1,10 @@
+{
+  "name": "pave-api-pgtest",
+  "private": true,
+  "type": "module",
+  "comentario": "Versões fixas: pglite-socket 0.2.11 quebra o protocolo do asyncpg 0.31 ('NoneType' has no attribute 'cancelled'). 0.1.6 + pglite 0.4.6 é o par testado.",
+  "dependencies": {
+    "@electric-sql/pglite": "0.4.6",
+    "@electric-sql/pglite-socket": "0.1.6"
+  }
+}

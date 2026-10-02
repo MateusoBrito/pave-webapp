@@ -6,7 +6,9 @@ interface Props {
   className?: string
   /** mostra o "N%" dentro de cada segmento — só quando o segmento for largo o bastante */
   showLabels?: boolean
-  size?: 'sm' | 'lg'
+  /** "md" — meio-termo pra rótulos compactos (ex.: badge de sentimento geral no
+   * cabeçalho de um card), sem pular direto pro tamanho grande do Comparativo. */
+  size?: 'sm' | 'md' | 'lg'
 }
 
 const MIN_LABEL_PCT = 8
@@ -21,8 +23,9 @@ export function SentimentBar({
   const negPct = (sentiment.negative / total) * 100
   const neuPct = (sentiment.neutral / total) * 100
   const posPct = (sentiment.positive / total) * 100
-  const height = size === 'lg' ? 'h-[22px]' : 'h-2'
+  const height = size === 'lg' ? 'h-[22px]' : size === 'md' ? 'h-[13px]' : 'h-2'
   const radius = size === 'lg' ? 'rounded-[7px]' : 'rounded-full'
+  const labelSize = size === 'lg' ? 'text-[9px]' : 'text-[7px]'
   // ordem padrão (negativo→positivo) fica igual à de sempre — só o card grande do
   // Comparativo usa a ordem do Figma (positivo→negativo), pra não mudar o visual de
   // quem já chama este componente sem os novos props (ex.: TopTopicsTable)
@@ -54,7 +57,7 @@ export function SentimentBar({
           >
             {showLabels && pct >= MIN_LABEL_PCT && (
               <span
-                className="text-[9px] font-bold"
+                className={`${labelSize} font-bold`}
                 style={{ color: textLight ? '#fff' : 'var(--text-secondary)' }}
               >
                 {pct.toFixed(0)}%
