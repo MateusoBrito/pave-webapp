@@ -123,6 +123,8 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
 
   const { label: sentimentLabel, pct: sentimentPct } = predominantSentiment(detail.sentiment)
   const network = detail.dominantNetwork
+  const rawLabel = detail.topic.label || ''
+  const formattedLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1)
   const hasDescription = detail.topic.description && detail.topic.description.trim() !== ''
 
   return (
@@ -143,7 +145,7 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
         </span>
         <span className="text-[var(--text-muted)]">/</span>
         <span className="text-[var(--text-secondary)]">
-          {detail.topic.label}
+          {formattedLabel}
           {ownerEntity ? ` · ${ownerEntity.name}` : ''}
         </span>
       </div>
@@ -153,7 +155,7 @@ export function TopicHeader({ detail, ownerEntity, loading, error, refetch }: Pr
           <IconTile icon={Hash} tone="purple" size={52} />
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-              {detail.topic.label}
+              {formattedLabel}
             </h1>
             
             {/* Renderização condicional: Descrição OU pílulas de tags */}

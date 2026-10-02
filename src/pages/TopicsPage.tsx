@@ -47,7 +47,7 @@ export function TopicsPage() {
     data: ranking = [],
     loading: rankingLoading,
     error: rankingError,
-  } = useAsync(() => getTopicRanking(candidateIds, period, [network], undefined, false), deps)
+  } = useAsync(() => getTopicRanking(candidateIds, period, [network]), deps)
   const {
     data: matrix,
     loading: matrixLoading,

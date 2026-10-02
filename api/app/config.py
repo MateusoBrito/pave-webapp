@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     fotos_dir: str = ""
 
     firebase_credentials_file: str = ""
-    auth_disabled: bool = False
+    auth_disabled: bool = True
 
 
 @lru_cache

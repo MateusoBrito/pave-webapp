@@ -1,14 +1,14 @@
-import { Columns3, Home, Info, Megaphone, MessageCircle, X } from 'lucide-react'
+import { Columns3, Home, Info, Megaphone, MessageCircle, X, HelpCircle} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { FOCUS_RING } from '../ui/focusRing'
-import { ProfileMenu } from './ProfileMenu'
 
 const NAV_ITEMS: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/', label: 'Visão Geral', icon: Home },
   { to: '/topicos', label: 'O que os usuários comentam?', icon: MessageCircle },
   { to: '/posts', label: 'O que os candidatos postam?', icon: Megaphone },
   { to: '/comparativo', label: 'Comparativo', icon: Columns3 },
+  { to: '/sobre', label: 'Sobre', icon: HelpCircle},
   { to: '/metodologia', label: 'Metodologia', icon: Info },
 ]
 
@@ -90,7 +90,6 @@ export function Sidebar({ open, onClose }: Props) {
           </nav>
         </div>
 
-        <ProfileMenu />
       </aside>
     </>
   )

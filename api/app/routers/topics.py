@@ -1,5 +1,6 @@
 """Ranking, drill-down e distribuição de tópicos."""
 
+from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,8 +61,7 @@ async def calendar(
     require_topic: bool = Query(False, description="Se True, ignora documentos que não possuem tópico"),
     session: AsyncSession = Depends(get_session),
 ):
-    """Um mini-calendário por candidato: o tópico de maior volume de cada dia entre
-    `from` e `to` — ver TopicsCalendarCard (navegação por mês) no front."""
+    """Um mini-calendário por candidato: o tópico de maior volume de cada dia."""
     if not entities:
         return TopicCalendarResult(entities=[])
     return await topics.topic_calendar(
@@ -97,10 +97,54 @@ async def detail(
     resposta para as demais chamadas do drill-down."""
     topico_id, entidade = _split(topic_id)
     resultado = await topics.topic_detail(session, topic_id, topico_id, entidade, escopo.networks)
+    
     if resultado is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tópico sem documentos."
+        from sqlalchemy import text
+        from datetime import date
+        from ..schemas.domain import Topic, TopicSentiment
+        
+        # Buscando também a janela do modelo para não jogar o usuário para o dia atual!
+        query = text("""
+            SELECT t.rotulo, t.descricao, t.palavras_chave, t.revisado, 
+                   m.janela_inicio, m.janela_fim
+            FROM topico t
+            JOIN modelo m ON t.modelo_id = m.id
+            WHERE t.id = :id
+        """)
+        row = (await session.execute(query, {"id": topico_id})).mappings().first()
+        
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Tópico não existe no banco."
+            )
+            
+        palavras = row.get("palavras_chave") or []
+        if isinstance(palavras, str):
+            palavras = [p.strip() for p in palavras.replace('{','').replace('}','').split(',')]
+
+        # Usa as datas reais do modelo que gerou o tópico
+        dt_inicio = row.get("janela_inicio") or date.today()
+        dt_fim = row.get("janela_fim") or date.today()
+
+        return TopicDetail(
+            topic=Topic(
+                id=topic_id,
+                entity_id=entidade,
+                label=row.get("rotulo") or f"Tópico {topico_id}",
+                description=row.get("descricao"),
+                tags=palavras,
+                weight=0.0,
+                emergent=not row.get("revisado", True)
+            ),
+            mentions=0,
+            share_pct=0.0,
+            sentiment=TopicSentiment(negative=0.0, neutral=0.0, positive=0.0),
+            dominant_network=escopo.networks[0] if escopo.networks else Network.YOUTUBE,
+            peak_date=None,
+            period_start=dt_inicio,
+            period_end=dt_fim
         )
+        
     return resultado
 
 

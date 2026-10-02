@@ -1,16 +1,16 @@
 import { AlertTriangle, MousePointerClick, TrendingUp } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { getTopicCalendar } from '../../api/client'
 import type { AdTopicRankingRow } from '../../api/client'
 import { useFilters } from '../../context/FiltersContext'
 import { useAsync } from '../../hooks'
-import { formatFullDate, formatShortDate, yesterdayIsoDate } from '../../lib/dates'
 import { formatBRLRange } from '../../lib/format'
+import { formatFullDate, formatShortDate, yesterdayIsoDate } from '../../lib/dates'
+import { IMPORTANT_EVENTS } from '../../lib/events'
 import type { Entity } from '../../types'
 import { IconTile } from '../ui/IconTile'
-import { SegmentedControl } from '../ui/SegmentedControl'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
 
@@ -41,23 +41,14 @@ export function AdsTimelineChart({ entities, rankingRows, rankingLoading, rankin
   const activeId = candidateIds[0]
   const activeEntity = entities.find((e) => e.id === activeId)
 
-  const totalInvestment = rankingRows.reduce(
-    (acc, row) => ({
-      min: acc.min + row.investmentMinBRL,
-      max: acc.max + row.investmentMaxBRL,
-    }),
-    { min: 0, max: 0 },
-  )
-  const hasInvestment = rankingRows.length > 0
 
   // Busca um histórico longo (1 ano) para conseguirmos encontrar os últimos N dias
   // que REALMENTE tiveram anúncios (evitando gráficos vazios se o candidato parou de anunciar)
-  const [requireTopic, setRequireTopic] = useState<'all' | 'topics_only'>('all')
-
   const period = { from: daysAgoIso(365), to: yesterdayIsoDate() }
+
   const { data, loading, error, refetch } = useAsync(
-    () => (activeId ? getTopicCalendar([activeId], 'meta_ads', period, requireTopic === 'topics_only') : Promise.resolve(undefined)),
-    [activeId, requireTopic],
+    () => (activeId ? getTopicCalendar([activeId], 'meta_ads', period, false) : Promise.resolve(undefined)),
+    [activeId],
   )
 
   const allDays = data?.entities[0]?.days ?? []
@@ -102,27 +93,6 @@ export function AdsTimelineChart({ entities, rankingRows, rankingLoading, rankin
           </div>
         </div>
 
-        <div className="hidden sm:block">
-          <SegmentedControl
-            value={requireTopic}
-            onChange={(val) => setRequireTopic(val as 'all' | 'topics_only')}
-            options={[
-              { value: 'all', label: 'Todos os anúncios' },
-              { value: 'topics_only', label: 'Com tópico' },
-            ]}
-          />
-        </div>
-
-        {hasInvestment && (
-          <div className="flex min-w-[180px] flex-col gap-1">
-            <p className="text-[10px] font-bold tracking-[0.3px] text-[var(--text-muted)] uppercase">
-              Investimento no dia
-            </p>
-            <p className="text-[18px] font-bold text-[var(--text-primary)]">
-              {formatBRLRange(totalInvestment.min, totalInvestment.max)}
-            </p>
-          </div>
-        )}
       </div>
 
       {error ? (
@@ -206,6 +176,20 @@ export function AdsTimelineChart({ entities, rankingRows, rankingLoading, rankin
                   }}
                   activeDot={false}
                 />
+                {IMPORTANT_EVENTS.map((event) => (
+                  <ReferenceLine
+                    key={event.date}
+                    x={event.date}
+                    stroke="var(--text-muted)"
+                    strokeDasharray="3 3"
+                    label={{
+                      position: 'insideTopLeft',
+                      value: event.label,
+                      fill: 'var(--text-muted)',
+                      fontSize: 10,
+                    }}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
             <p className="text-center text-[11px] text-[var(--text-muted)]">

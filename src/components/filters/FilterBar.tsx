@@ -1,4 +1,5 @@
 import { useMatch } from 'react-router-dom'
+import { ActiveDateDisplay } from './ActiveDateDisplay'
 import { CandidateAvatarFilter } from './CandidateAvatarFilter'
 import { NetworkChipFilter } from './NetworkChipFilter'
 
@@ -30,13 +31,14 @@ export function FilterBar() {
   if (isTopics) {
     return (
       <div className="px-4 pt-4 sm:px-6 sm:pt-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <CandidateAvatarFilter singleSelect />
           <NetworkChipFilter
             singleSelect
             title="Qual plataforma?"
             options={['youtube', 'reddit']}
           />
+          <ActiveDateDisplay />
         </div>
       </div>
     )

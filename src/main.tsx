@@ -3,19 +3,16 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
-import { RedirectIfAuthed } from './components/auth/RedirectIfAuthed'
-import { RequireAuth } from './components/auth/RequireAuth'
 import { ScrollToTop } from './components/layout/ScrollToTop'
 import { AuthProvider } from './context/AuthContext'
 import { AdTopicDrilldownPage } from './pages/AdTopicDrilldownPage'
 import { ComparisonPage } from './pages/ComparisonPage'
-import { LoginPage } from './pages/LoginPage'
 import { MethodologyPage } from './pages/MethodologyPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { PostsPage } from './pages/PostsPage'
-import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { TopicDrilldownPage } from './pages/TopicDrilldownPage'
 import { TopicsPage } from './pages/TopicsPage'
+import { AboutPage } from './pages/AboutPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -23,21 +20,11 @@ createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         <ScrollToTop />
         <Routes>
-          <Route
-            path="/login"
-            element={
-              <RedirectIfAuthed>
-                <LoginPage />
-              </RedirectIfAuthed>
-            }
-          />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
           <Route
             path="/"
             element={
-              <RequireAuth>
-                <App />
-              </RequireAuth>
+              <App />
             }
           >
             <Route index element={<OverviewPage />} />
@@ -46,6 +33,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="posts" element={<PostsPage />} />
             <Route path="anuncios/:topicId" element={<AdTopicDrilldownPage />} />
             <Route path="comparativo" element={<ComparisonPage />} />
+            <Route path="sobre" element={<AboutPage />} />
             <Route path="metodologia" element={<MethodologyPage />} />
           </Route>
         </Routes>

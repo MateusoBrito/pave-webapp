@@ -1,5 +1,5 @@
 import { AlertTriangle, MousePointerClick, TrendingUp } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { getTopicCalendar } from '../../api/client'
@@ -8,9 +8,9 @@ import { useFilters } from '../../context/FiltersContext'
 import { useAsync } from '../../hooks'
 import { formatFullDate, formatShortDate, yesterdayIsoDate } from '../../lib/dates'
 import { candidateColor, predominantSentiment, sentimentColor } from '../../lib/colors'
+import { IMPORTANT_EVENTS } from '../../lib/events'
 import type { Entity, Network, TopicSentiment } from '../../types'
 import { IconTile } from '../ui/IconTile'
-import { SegmentedControl } from '../ui/SegmentedControl'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
 import { SentimentBar } from './SentimentBar'
@@ -71,14 +71,12 @@ export function TopicsTimelineChart({
     activeSentiment &&
     activeSentiment.sentiment.negative + activeSentiment.sentiment.neutral + activeSentiment.sentiment.positive > 0
 
-  const [requireTopic, setRequireTopic] = useState<'all' | 'topics_only'>('all')
-
   const period = { from: daysAgoIso(WINDOW_DAYS), to: yesterdayIsoDate() }
-  const { data, loading, error, refetch } = useAsync(
-    () => (activeId ? getTopicCalendar([activeId], network, period, requireTopic === 'topics_only') : Promise.resolve(undefined)),
-    [activeId, network, requireTopic],
-  )
 
+  const { data, loading, error, refetch } = useAsync(
+    () => (activeId ? getTopicCalendar([activeId], network, period, false) : Promise.resolve(undefined)),
+    [activeId, network],
+  )
   const chartData = (data?.entities[0]?.days ?? []).map((d) => ({
     date: d.date,
     // null (não 0) para dias sem modelo carregado - vira um buraco na linha em vez de
@@ -122,17 +120,6 @@ export function TopicsTimelineChart({
               Clique num ponto para ver os tópicos daquele dia
             </p>
           </div>
-        </div>
-
-        <div className="hidden sm:block">
-          <SegmentedControl
-            value={requireTopic}
-            onChange={(val) => setRequireTopic(val as 'all' | 'topics_only')}
-            options={[
-              { value: 'all', label: 'Todos os docs' },
-              { value: 'topics_only', label: 'Com tópico' },
-            ]}
-          />
         </div>
 
         {hasSentiment && activeSentiment && (
@@ -243,6 +230,20 @@ export function TopicsTimelineChart({
                   }}
                   activeDot={false}
                 />
+                {IMPORTANT_EVENTS.map((event) => (
+                  <ReferenceLine
+                    key={event.date}
+                    x={event.date}
+                    stroke="var(--text-muted)"
+                    strokeDasharray="3 3"
+                    label={{
+                      position: 'insideTopLeft',
+                      value: event.label,
+                      fill: 'var(--text-muted)',
+                      fontSize: 10,
+                    }}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
             <p className="text-center text-[11px] text-[var(--text-muted)]">

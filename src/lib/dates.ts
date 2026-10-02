@@ -35,7 +35,8 @@ export function allTimePeriod(): PeriodFilter {
 }
 
 export function formatShortDate(iso: string): string {
-  const [, month, day] = iso.split('-')
+  if (!iso) return ''
+  const [, month, day] = iso.split('T')[0].split('-')
   return `${day}/${month}`
 }
 
@@ -62,12 +63,14 @@ export function formatDateTime(iso: string): string {
 }
 
 export function formatDateRange(period: PeriodFilter): string {
-  const [, fm, fd] = period.from.split('-')
-  const [ty, tm, td] = period.to.split('-')
+  if (!period?.from || !period?.to) return ''
+  const [, fm, fd] = period.from.split('T')[0].split('-')
+  const [ty, tm, td] = period.to.split('T')[0].split('-')
   return `${fd}/${fm} – ${td}/${tm}/${ty}`
 }
 
 export function formatFullDate(iso: string): string {
-  const [y, m, d] = iso.split('-')
+  if (!iso) return ''
+  const [y, m, d] = iso.split('T')[0].split('-')
   return `${d}/${m}/${y}`
 }

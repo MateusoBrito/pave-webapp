@@ -1,3 +1,22 @@
+import { useState } from 'react'
+import { Eye, Megaphone, Wallet, Info } from 'lucide-react'
+import {
+  getAdTopicRanking,
+  getCandidateContentSummary,
+  getCandidatePosts,
+  getEntities,
+  getTopics,
+} from '../api/client'
+import { AdExamplesCarousel } from '../components/dashboard/AdExamplesCarousel'
+import { AdsTimelineChart } from '../components/dashboard/AdsTimelineChart'
+import { CandidateAvatarFilter } from '../components/filters/CandidateAvatarFilter'
+import { MetaPlatformFilter } from '../components/filters/MetaPlatformFilter'
+import { KpiCardSkeleton } from '../components/ui/skeletons'
+import { KpiCard } from '../components/dashboard/KpiCard'
+import { useFilters } from '../context/FiltersContext'
+import { usePageHeader } from '../context/PageHeaderContext'
+import { useAsync } from '../hooks'
+import { formatFullDate } from '../lib/dates'
 import { formatBRLRange } from '../lib/format'
 import type { MetaAdPlatform } from '../types'
 

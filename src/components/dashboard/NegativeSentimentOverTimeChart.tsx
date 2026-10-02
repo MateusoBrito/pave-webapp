@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,6 +15,7 @@ import type { Entity } from '../../types'
 import { useFilters } from '../../context/FiltersContext'
 import { sentimentColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
+import { IMPORTANT_EVENTS } from '../../lib/events'
 import { IconTile } from '../ui/IconTile'
 import { ChartCardSkeleton } from '../ui/skeletons'
 import { StatusCard } from '../ui/StatusCard'
@@ -219,6 +221,20 @@ export function NegativeSentimentOverTimeChart({
                     radius={[4, 4, 0, 0]}
                     isAnimationActive={false}
                   />
+                  {IMPORTANT_EVENTS.map((event) => (
+                    <ReferenceLine
+                      key={event.date}
+                      x={event.date}
+                      stroke="var(--text-muted)"
+                      strokeDasharray="3 3"
+                      label={{
+                        position: 'insideTopLeft',
+                        value: event.label,
+                        fill: 'var(--text-muted)',
+                        fontSize: 10,
+                      }}
+                    />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
             </div>

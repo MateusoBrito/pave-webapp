@@ -42,6 +42,7 @@ from .base import (
     compose_topic_id,
     fact_select,
     local_date_column,
+    local_hour_column,
     topic_emergent,
     topic_label,
 )
@@ -297,12 +298,10 @@ async def topics_by_subdivision(
             entity_ids=entity_ids,
             networks=[network],
             with_sentiment=False,
-            # Sem isso, junta os tópicos de todo dia já carregado numa pilha só (visto
-            # ao vivo: 10 tópicos somados de 2 dias diferentes, quando o dia
-            # selecionado só tem 5). Esta tela sempre parte de um dia escolhido
-            # explicitamente (ver TopicsPage) - sem fallback pra outro dia.
+            # Usar o mesmo fallback de topic_ranking para garantir que se o modelo for
+            # diário e não tiver rodado hoje, ele puxe os tópicos do modelo mais recente
             topic_day=period.end,
-            topic_day_fallback=False,
+            topic_day_fallback=True,
         )
         .join(Entidade, Entidade.codigo == AlvoColeta.entidade_codigo)
         .group_by(
@@ -356,25 +355,6 @@ async def topic_calendar(
     """GET /topics/calendar — um mini-calendário por candidato (ver TopicsCalendarCard
     no front, navegação por mês): o tópico de maior volume de cada dia entre `start` e
     `end` (inclusive), com o volume REAL daquele dia.
-
-    Antes lia direto de `topico.tamanho` (o total do tópico na janela inteira do
-    modelo) usando `modelo.janela_fim` como "o dia" - fazia sentido quando a modelagem
-    era diária (um modelo por dia, janela_inicio == janela_fim). Com a modelagem
-    semanal (pipeline/weekly_topics.py em pave-tm - janela_fim = janela_inicio+6), isso
-    só produzia UM ponto por semana (no janela_fim), com o volume da semana inteira
-    encaixado nesse único dia - os outros 6 dias ficavam vazios (buraco na linha do
-    gráfico) em vez de mostrarem o volume real deles.
-
-    Agora conta documento_topico de verdade, agrupado pelo dia real de publicação
-    (local_date_column) - todo dia dentro da janela de um modelo aparece com o volume
-    que de fato teve nele. O tópico de maior destaque é calculado por dia (não herdado
-    do agregado semanal), mas como o modelo vale pra semana toda, tende a se repetir
-    ao longo dela quando um tema domina a semana - sem precisar de lógica extra pra
-    isso.
-
-    Um dia sem nenhum documento com tópico vira TopicCalendarDay sem top_label/
-    mentions - célula vazia no calendário, não erro (mesma filosofia de "dias vazios
-    ficam vazios" do backfill).
     """
     dia_expr = local_date_column().label("dia")
     stmt = fact_select(
@@ -391,8 +371,6 @@ async def topic_calendar(
     ).group_by(dia_expr, AlvoColeta.entidade_codigo, Topico.id, Topico.rotulo, Topico.numero, Topico.palavras_chave)
     rows = (await session.execute(stmt)).all()
 
-    # Por (entidade, dia): soma todas as contagens de tópico = volume real do dia;
-    # o tópico com mais menções naquele dia vira o destaque.
     volume_por_dia: dict[tuple[str, Date], int] = {}
     melhor_por_dia: dict[tuple[str, Date], tuple[int, object]] = {}
     for row in rows:

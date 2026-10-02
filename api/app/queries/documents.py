@@ -264,29 +264,41 @@ async def content_summary(
 ) -> CandidateContentSummary:
     """GET /candidates/content-summary — KPIs de investimento e alcance.
 
-    Soma as faixas declaradas: o mínimo agregado soma os pisos, o máximo soma os
-    tetos. Não é um intervalo estatístico, é o que a Ad Library permite afirmar.
+    Soma as faixas declaradas distribuídas proporcionalmente pelos dias ativos
+    do anúncio dentro do período selecionado.
     """
     inicio, fim = day_bounds(period.start, period.end)
     agora = datetime.now(UTC)
 
-    termino = func.nullif(Documento.metadados[AD_STOP_KEYS[0]].astext, "")
-    ativo = termino.is_(None) | (cast(termino, DateTime(timezone=True)) > agora)
+    inicio_ad = func.coalesce(
+        cast(func.nullif(Documento.metadados[AD_START_KEYS[0]].astext, ""), DateTime(timezone=True)),
+        Documento.publicado_em
+    )
+    fim_ad = cast(func.nullif(Documento.metadados[AD_STOP_KEYS[0]].astext, ""), DateTime(timezone=True))
+    dias_ativos = func.greatest(1, func.extract('epoch', func.coalesce(fim_ad, agora) - inicio_ad) / 86400)
+
+    overlap_start = func.greatest(inicio_ad, inicio)
+    overlap_end = func.least(func.coalesce(fim_ad, agora), fim)
+    dias_no_periodo = func.greatest(0, func.extract('epoch', overlap_end - overlap_start) / 86400)
+    fracao = dias_no_periodo / dias_ativos
+
+    ativo_agora = fim_ad.is_(None) | (fim_ad > agora)
 
     stmt = (
         select(
-            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "lower_bound")), 0),
-            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "upper_bound")), 0),
-            func.count(),
-            func.count().filter(ativo),
-            func.coalesce(func.sum(ad_bound_sql(AD_IMPRESSIONS_KEY, "lower_bound")), 0),
-            func.coalesce(func.sum(ad_bound_sql(AD_IMPRESSIONS_KEY, "upper_bound")), 0),
+            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "lower_bound") * fracao), 0),
+            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "upper_bound") * fracao), 0),
+            func.count().filter(dias_no_periodo > 0),
+            func.count().filter(ativo_agora & (dias_no_periodo > 0)),
+            func.coalesce(func.sum(ad_bound_sql(AD_IMPRESSIONS_KEY, "lower_bound") * fracao), 0),
+            func.coalesce(func.sum(ad_bound_sql(AD_IMPRESSIONS_KEY, "upper_bound") * fracao), 0),
         )
         .select_from(Documento)
         .join(AlvoColeta, AlvoColeta.id == Documento.alvo_coleta_id)
         .where(
-            Documento.publicado_em >= inicio,
+            Documento.tipo == TipoDocumentoEnum.anuncio,
             Documento.publicado_em < fim,
+            func.coalesce(fim_ad, agora) > inicio,
             AlvoColeta.ativo.is_(True),
         )
     )
@@ -428,6 +440,7 @@ async def ad_topic_detail(
             Topico.numero,
             Topico.palavras_chave,
             Topico.revisado,
+            Topico.descricao,
             func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "lower_bound")), 0).label("min"),
             func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "upper_bound")), 0).label("max"),
             func.count().label("ads"),
@@ -444,7 +457,7 @@ async def ad_topic_detail(
             DocumentoTopico.topico_id == topico_id,
             Topico.modelo_id.in_(vigente_model_ids(TipoModeloEnum.topico)),
         )
-        .group_by(Topico.rotulo, Topico.numero, Topico.palavras_chave, Topico.revisado)
+        .group_by(Topico.rotulo, Topico.numero, Topico.palavras_chave, Topico.revisado, Topico.descricao)
     )
     stmt = _ads_filter(stmt, platforms)
     row = (await session.execute(stmt)).first()
@@ -457,6 +470,7 @@ async def ad_topic_detail(
             label=topic_label(row.rotulo, row.numero, row.palavras_chave),
             weight=0.0,
             tags=list(row.palavras_chave or []),
+            description=row.descricao,
             emergent=topic_emergent(row.revisado),
         ),
         investment_min_brl=int(row.min),
@@ -511,15 +525,29 @@ async def ad_candidate_breakdown(
 ) -> list[AdCandidateBreakdownRow]:
     """GET /candidates/content/by-candidate — investimento por candidato."""
     inicio, fim = day_bounds(period.start, period.end)
+    agora = datetime.now(UTC)
+
+    inicio_ad = func.coalesce(
+        cast(func.nullif(Documento.metadados[AD_START_KEYS[0]].astext, ""), DateTime(timezone=True)),
+        Documento.publicado_em
+    )
+    fim_ad = cast(func.nullif(Documento.metadados[AD_STOP_KEYS[0]].astext, ""), DateTime(timezone=True))
+    dias_ativos = func.greatest(1, func.extract('epoch', func.coalesce(fim_ad, agora) - inicio_ad) / 86400)
+
+    overlap_start = func.greatest(inicio_ad, inicio)
+    overlap_end = func.least(func.coalesce(fim_ad, agora), fim)
+    dias_no_periodo = func.greatest(0, func.extract('epoch', overlap_end - overlap_start) / 86400)
+    fracao = dias_no_periodo / dias_ativos
+
     stmt = (
         select(
             Entidade.codigo,
             Entidade.nome_exibicao,
             Entidade.partido,
             Entidade.foto,
-            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "lower_bound")), 0).label("min"),
-            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "upper_bound")), 0).label("max"),
-            func.count(Documento.id).label("ads"),
+            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "lower_bound") * fracao), 0).label("min"),
+            func.coalesce(func.sum(ad_bound_sql(AD_SPEND_KEY, "upper_bound") * fracao), 0).label("max"),
+            func.count(Documento.id).filter(dias_no_periodo > 0).label("ads"),
         )
         .select_from(Entidade)
         .outerjoin(
@@ -532,8 +560,8 @@ async def ad_candidate_breakdown(
             Documento,
             (Documento.alvo_coleta_id == AlvoColeta.id)
             & (Documento.tipo == TipoDocumentoEnum.anuncio)
-            & (Documento.publicado_em >= inicio)
-            & (Documento.publicado_em < fim),
+            & (Documento.publicado_em < fim)
+            & (func.coalesce(fim_ad, agora) > inicio),
         )
         .where(Entidade.ativa.is_(True))
         .group_by(Entidade.codigo, Entidade.nome_exibicao, Entidade.partido, Entidade.foto)

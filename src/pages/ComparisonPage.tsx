@@ -28,9 +28,9 @@ export function ComparisonPage() {
   const { data: entities = [] } = useAsync(() => getEntities(), [])
 
   const [selectedIds, setSelectedIds] = useState<string[]>()
-  // sem seleção do usuário ainda, começa com os 2 primeiros — depois disso quem manda é
-  // só o que está em selectedIds (inclusive vazio, se o usuário remover tudo)
-  const ids = (selectedIds ?? entities.slice(0, 2).map((e) => e.id)).filter((id) =>
+  // sem seleção do usuário ainda, começa com flavio e lula (a pedido) — depois disso
+  // quem manda é só o que está em selectedIds (inclusive vazio, se o usuário remover tudo)
+  const ids = (selectedIds ?? ['flavio_bolsonaro', 'lula']).filter((id) =>
     entities.some((e) => e.id === id),
   )
   const selectedEntities = ids

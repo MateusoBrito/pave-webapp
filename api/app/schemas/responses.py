@@ -282,7 +282,7 @@ class TopicCalendarDay(ApiModel):
     célula vazia no calendário, não um erro.
     """
 
-    date: Date
+    date: DateTime | Date
     top_label: str | None = None
     mentions: int | None = None
 

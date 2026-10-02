@@ -46,7 +46,7 @@ if [ "$PARAR" = 1 ]; then
   matar_porta "$PORTA_FRONT" "front"
   matar_porta "$PORTA_API" "API"
   if [ -d "$PIPELINE_DIR" ] && command -v docker >/dev/null; then
-    (cd "$PIPELINE_DIR" && docker compose stop postgres >/dev/null 2>&1) && ok "Postgres parado"
+    (cd "$PIPELINE_DIR" && docker-compose stop postgres >/dev/null 2>&1) && ok "Postgres parado"
   fi
   exit 0
 fi
@@ -83,12 +83,18 @@ fi
 
 ok "arquivos de configuração no lugar"
 
+if [ -z "${PORTA_POSTGRES:-}" ]; then
+  PORTA_POSTGRES=$(grep -oP '(?<=^PAVE_DATABASE_URL=).*' "$API_DIR/.env" \
+    | grep -oP ':\K[0-9]+(?=/[^/]*$)' || true)
+  PORTA_POSTGRES="${PORTA_POSTGRES:-5432}"
+fi
+
 porta_aberta() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
 
 if [ "$SEM_BANCO" = 0 ]; then
   info "Subindo o Postgres"
-  if porta_aberta 5432; then
-    ok "já havia algo escutando em 5432 — reaproveitando"
+  if porta_aberta "$PORTA_POSTGRES"; then
+    ok "já havia algo escutando em $PORTA_POSTGRES — reaproveitando"
   else
     command -v docker >/dev/null || morrer \
       "docker não encontrado. Suba o Postgres por fora e use --sem-banco"
@@ -96,20 +102,20 @@ if [ "$SEM_BANCO" = 0 ]; then
       "não achei o docker-compose em $PIPELINE_DIR
    defina PAVE_PIPELINE_DIR=/caminho/do/pave-pipeline"
 
-    (cd "$PIPELINE_DIR" && docker compose up -d postgres) \
-      || morrer "docker compose falhou (o daemon está rodando?)"
+    (cd "$PIPELINE_DIR" && docker-compose up -d postgres) \
+      || morrer "docker-compose falhou (o daemon está rodando?)"
 
     printf '     aguardando'
     for _ in $(seq "$ESPERA_MAX"); do
-      porta_aberta 5432 && break
+      porta_aberta "$PORTA_POSTGRES" && break
       printf '.'; sleep 1
     done
     printf '\n'
-    porta_aberta 5432 || morrer "Postgres não respondeu em ${ESPERA_MAX}s"
+    porta_aberta "$PORTA_POSTGRES" || morrer "Postgres não respondeu em ${ESPERA_MAX}s (porta $PORTA_POSTGRES)"
     ok "Postgres de pé"
   fi
 else
-  porta_aberta 5432 || aviso "nada escutando em 5432 — a API não vai conectar"
+  porta_aberta "$PORTA_POSTGRES" || aviso "nada escutando em $PORTA_POSTGRES — a API não vai conectar"
 fi
 
 if [ "$SEM_DIAGNOSTICO" = 0 ]; then
@@ -143,7 +149,7 @@ if porta_aberta "$PORTA_API"; then
 fi
 
 LOG_API="${TMPDIR:-/tmp}/pave-api.log"
-(cd "$API_DIR" && exec .venv/bin/uvicorn app.main:app --reload --port "$PORTA_API" \
+(cd "$API_DIR" && exec .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port "$PORTA_API" \
    >"$LOG_API" 2>&1) &
 PIDS+=($!)
 
@@ -183,7 +189,7 @@ if porta_aberta "$PORTA_FRONT"; then
 fi
 
 LOG_FRONT="${TMPDIR:-/tmp}/pave-front.log"
-(cd "$FRONT_DIR" && exec npm run dev -- --port "$PORTA_FRONT" --strictPort \
+(cd "$FRONT_DIR" && exec npm run dev -- --host 0.0.0.0 --port "$PORTA_FRONT" --strictPort \
    >"$LOG_FRONT" 2>&1) &
 PIDS+=($!)
 

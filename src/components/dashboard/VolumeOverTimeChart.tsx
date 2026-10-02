@@ -6,6 +6,7 @@ import {
   Line,
   LineChart,
   ReferenceArea,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -17,6 +18,7 @@ import { useFilters } from '../../context/FiltersContext'
 import { pivotByDate, detectGapRanges } from '../../lib/chartData'
 import { candidateColor } from '../../lib/colors'
 import { formatShortDate } from '../../lib/dates'
+import { IMPORTANT_EVENTS } from '../../lib/events'
 import { Button } from '../ui/Button'
 import { IconTile, type IconTone } from '../ui/IconTile'
 import { ChartCardSkeleton } from '../ui/skeletons'
@@ -182,6 +184,20 @@ export function VolumeOverTimeChart({
                   dot={false}
                   isAnimationActive={false}
                   activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--chart-surface)' }}
+                />
+              ))}
+              {IMPORTANT_EVENTS.map((event) => (
+                <ReferenceLine
+                  key={event.date}
+                  x={event.date}
+                  stroke="var(--text-muted)"
+                  strokeDasharray="3 3"
+                  label={{
+                    position: 'insideTopLeft',
+                    value: event.label,
+                    fill: 'var(--text-muted)',
+                    fontSize: 10,
+                  }}
                 />
               ))}
             </LineChart>

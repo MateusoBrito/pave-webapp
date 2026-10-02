@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://labpi.ufsj.edu.br/pave/sitemap.xml
